@@ -691,6 +691,17 @@
         </div>
       </div>
     </div>
+    <script>
+      // Desktop preload injects the Mac product name. The web build keeps "T3 Code" above.
+      const bootBranding = window.desktopBridge?.getAppBranding?.();
+      const bootBaseName = bootBranding?.baseName;
+      if (bootBaseName) {
+        const bootCard = document.getElementById("boot-shell-card");
+        const bootLogo = document.getElementById("boot-shell-logo");
+        if (bootCard) bootCard.setAttribute("aria-label", bootBaseName + " splash screen");
+        if (bootLogo instanceof HTMLImageElement) bootLogo.alt = bootBaseName;
+      }
+    </script>
     <script type="module" src="/src/bootstrap.ts"></script>
   </body>
 </html>

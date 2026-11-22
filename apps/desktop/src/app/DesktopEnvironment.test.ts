@@ -38,6 +38,18 @@ const makeEnvironment = (
 ) => DesktopEnvironment.DesktopEnvironment.pipe(Effect.provide(layerEnvironment(overrides, env)));
 
 describe("DesktopEnvironment", () => {
+  it.effect("names Mac chrome VexoMacApp and leaves other desktops as T3 Code", () =>
+    Effect.gen(function* () {
+      const mac = yield* makeEnvironment({ platform: "darwin" });
+      const linux = yield* makeEnvironment({ platform: "linux" });
+
+      assert.equal(mac.branding.baseName, "VexoMacApp");
+      assert.equal(mac.displayName, "VexoMacApp (Beta)");
+      assert.equal(linux.branding.baseName, "T3 Code");
+      assert.equal(linux.displayName, "T3 Code (Beta)");
+    }),
+  );
+
   it.effect("uses the packaged Windows server sidecar as the backend root", () =>
     Effect.gen(function* () {
       const environment = yield* makeEnvironment({

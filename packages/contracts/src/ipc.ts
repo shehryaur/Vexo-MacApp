@@ -2,7 +2,7 @@ import * as Schema from "effect/Schema";
 import type { PreviewCaptureFailureEncoded } from "./previewCapture.ts";
 
 import { SnapShotSource } from "./chatAttachment.ts";
-import { EnvironmentId, PortSchema, TrimmedNonEmptyString } from "./baseSchemas.ts";
+import { EnvironmentId, NonNegativeInt, PortSchema, TrimmedNonEmptyString } from "./baseSchemas.ts";
 import { BrowserProfileId } from "./browserProfile.ts";
 import type {
   BrowserImportResult,
@@ -1104,6 +1104,115 @@ export const DesktopAppleSpeechTranscribeInputSchema = Schema.Struct({
 export const SystemSettingsPaneSchema = Schema.Literals(["full-disk-access"]);
 export type SystemSettingsPane = typeof SystemSettingsPaneSchema.Type;
 
+const MacUnlockReasonSchema = Schema.String.check(Schema.isMaxLength(400));
+
+const FrontWindowCaptureReasonSchema = Schema.String.check(Schema.isMaxLength(400));
+
+/**
+ * Front-window JPEG from the desktop host. `imagePath` is a temp file, never image bytes.
+ * `{ ok: false, reason: "redacted" }` or `"locked"` means the session is locked or an unlock
+ * is in progress, and no pixels were captured.
+ */
+export const DesktopFrontWindowCaptureSchema = Schema.Union([
+  Schema.Struct({
+    ok: Schema.Literal(true),
+    windowId: NonNegativeInt,
+    title: Schema.String.check(Schema.isMaxLength(1_000)),
+    app: Schema.String.check(Schema.isMaxLength(255)),
+    bounds: Schema.Struct({
+      x: Schema.Number,
+      y: Schema.Number,
+      width: Schema.Number,
+      height: Schema.Number,
+    }),
+    imagePath: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(4_096)),
+    dataUrl: Schema.optional(Schema.String),
+  }),
+  Schema.Struct({
+    ok: Schema.Literal(false),
+    reason: FrontWindowCaptureReasonSchema,
+  }),
+]);
+export type DesktopFrontWindowCapture = typeof DesktopFrontWindowCaptureSchema.Type;
+
+export const DesktopMacUnlockStatusSchema = Schema.Struct({
+  passwordStored: Schema.Boolean,
+  askBeforeUnlock: Schema.Boolean,
+});
+export type DesktopMacUnlockStatus = typeof DesktopMacUnlockStatusSchema.Type;
+
+export const DesktopMacUnlockResultSchema = Schema.Union([
+  Schema.Struct({ ok: Schema.Literal(true) }),
+  Schema.Struct({ ok: Schema.Literal(false), reason: MacUnlockReasonSchema }),
+]);
+export type DesktopMacUnlockResult = typeof DesktopMacUnlockResultSchema.Type;
+
+export const DesktopMacUnlockRelockResultSchema = Schema.Union([
+  Schema.Struct({ ok: Schema.Literal(true), relocked: Schema.Boolean }),
+  Schema.Struct({ ok: Schema.Literal(false), reason: MacUnlockReasonSchema }),
+]);
+export type DesktopMacUnlockRelockResult = typeof DesktopMacUnlockRelockResultSchema.Type;
+
+export const DesktopMacUnlockRespondSchema = Schema.Struct({
+  id: Schema.String.check(Schema.isMaxLength(64)),
+  approved: Schema.Boolean,
+});
+
+export const DesktopMacUnlockConfirmEventSchema = Schema.Struct({
+  id: Schema.String.check(Schema.isMaxLength(64)),
+  open: Schema.Boolean,
+});
+export type DesktopMacUnlockConfirmEvent = typeof DesktopMacUnlockConfirmEventSchema.Type;
+
+const VexoDetailSchema = Schema.String.check(Schema.isMaxLength(400));
+
+/**
+ * User-space lid-closed hold. `active` means `caffeinate` is running in this app.
+ * This does not report a root `pmset sleepdisabled` change, and it does not use a private API.
+ */
+export const DesktopVexoAwakeStatusSchema = Schema.Struct({
+  active: Schema.Boolean,
+  mode: Schema.Literals(["off", "user-space"]),
+  sleepDisabled: Schema.Boolean,
+  batteryPercent: Schema.NullOr(
+    Schema.Int.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(100)),
+  ),
+  onExternalPower: Schema.NullOr(Schema.Boolean),
+  thermal: Schema.Literals(["nominal", "fair", "serious", "critical", "unknown"]),
+  detail: VexoDetailSchema,
+});
+export type DesktopVexoAwakeStatus = typeof DesktopVexoAwakeStatusSchema.Type;
+
+const DesktopVexoBandMatchSchema = Schema.Struct({
+  name: Schema.String.check(Schema.isMaxLength(80)),
+  id: Schema.String.check(Schema.isMaxLength(80)),
+  connected: Schema.Boolean,
+});
+
+/**
+ * Radios that look like a Vexo band. `connected` means macOS already has a connection.
+ * This scan does not pair.
+ */
+export const DesktopVexoBandStatusSchema = Schema.Struct({
+  state: Schema.Literals(["connected", "not-found"]),
+  matches: Schema.Array(DesktopVexoBandMatchSchema).check(Schema.isMaxLength(8)),
+  detail: VexoDetailSchema,
+});
+export type DesktopVexoBandStatus = typeof DesktopVexoBandStatusSchema.Type;
+
+/** Keychain status and confirmed unlock. Responses never include the login password. */
+export interface DesktopMacUnlockBridge {
+  status: () => Promise<DesktopMacUnlockStatus>;
+  savePassword: (password: string) => Promise<DesktopMacUnlockResult>;
+  clearPassword: () => Promise<DesktopMacUnlockResult>;
+  setAskBeforeUnlock: (askBeforeUnlock: boolean) => Promise<DesktopMacUnlockResult>;
+  /** Asks first when that setting is on, then unlocks with `{ confirmed: true }`. */
+  unlockForTask: () => Promise<DesktopMacUnlockResult>;
+  respondToUnlock: (id: string, approved: boolean) => Promise<void>;
+  relockIfAbandoned: () => Promise<DesktopMacUnlockRelockResult>;
+  onUnlockConfirm: (listener: (event: DesktopMacUnlockConfirmEvent) => void) => () => void;
+}
+
 export interface DesktopBridge {
   getAppBranding: () => DesktopAppBranding | null;
   /** `null` until the desktop host has read the login shell's environment; ask again later. */
@@ -1241,6 +1350,26 @@ export interface DesktopBridge {
     onRequest: (listener: (request: DesktopAppActivationRequest) => void) => () => void;
   };
   preview: DesktopPreviewBridge;
+  /**
+   * Captures the front window on this Mac. The JPEG stays in `imagePath`.
+   * A `redacted` or `locked` result captured nothing.
+   */
+  captureFrontWindow: () => Promise<DesktopFrontWindowCapture>;
+  /** User-space lid-closed hold. Does not disable sleep as root. */
+  vexoAwake: {
+    status: () => Promise<DesktopVexoAwakeStatus>;
+    setActive: (active: boolean) => Promise<DesktopVexoAwakeStatus>;
+  };
+  /**
+   * Nearby or connected radios that look like a Vexo band.
+   * `connected` means macOS already has a connection. This does not pair.
+   */
+  vexoBand: {
+    status: () => Promise<DesktopVexoBandStatus>;
+    scan: () => Promise<DesktopVexoBandStatus>;
+  };
+  /** Login-keychain unlock for this Mac. The password is never returned. */
+  macUnlock: DesktopMacUnlockBridge;
   /** On-device dictation through macOS 26 SpeechAnalyzer; absent in older desktop builds. */
   appleSpeech?: {
     supportedLocales: () => Promise<readonly string[]>;

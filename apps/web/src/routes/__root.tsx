@@ -26,6 +26,7 @@ import { DevReplayHost } from "../components/DevReplayHost";
 import { FirstRunGate } from "../components/onboarding/FirstRunGate";
 import { ConnectOnboardingDialog } from "../components/cloud/ConnectOnboardingDialog";
 import { RelayClientInstallDialog } from "../components/cloud/RelayClientInstallDialog";
+import { MacUnlockConfirmDialog } from "../components/desktop/MacUnlockConfirmDialog";
 import { SshPasswordPromptDialog } from "../components/desktop/SshPasswordPromptDialog";
 import { SnapShotCoordinator } from "../components/desktop/SnapShotCoordinator";
 import { DesktopAppActivationCoordinator } from "../components/desktop/DesktopAppActivationCoordinator";
@@ -196,6 +197,7 @@ function RootRouteBranch() {
       <RelayClientInstallDialog />
       <ConnectOnboardingDialog />
       <SshPasswordPromptDialog />
+      <MacUnlockConfirmDialog />
       <SnapShotCoordinator />
       <ReopenClosedViewShortcut />
       <ConfirmDialogHost />

@@ -92,6 +92,18 @@ import {
   uninstallCliCommand,
   addCliCommandToPath,
 } from "./methods/cliCommand.ts";
+import { captureFrontWindow } from "./methods/captureFrontWindow.ts";
+import {
+  macUnlockClear,
+  macUnlockForTask,
+  macUnlockRelock,
+  macUnlockRespond,
+  macUnlockSave,
+  macUnlockSetAsk,
+  macUnlockStatus,
+  startDesktopUnlockPromptWatcher,
+} from "./methods/macUnlock.ts";
+import { vexoAwakeSet, vexoAwakeStatus, vexoBandScan, vexoBandStatus } from "./methods/vexoMac.ts";
 
 export const installDesktopIpcHandlers = Effect.fn("desktop.ipc.installHandlers")(function* () {
   const ipc = yield* DesktopIpc.DesktopIpc;
@@ -182,6 +194,19 @@ export const installDesktopIpcHandlers = Effect.fn("desktop.ipc.installHandlers"
   yield* ipc.handle(installCliCommand);
   yield* ipc.handle(uninstallCliCommand);
   yield* ipc.handle(addCliCommandToPath);
+  yield* ipc.handle(captureFrontWindow);
+  yield* ipc.handle(macUnlockStatus);
+  yield* ipc.handle(macUnlockSave);
+  yield* ipc.handle(macUnlockClear);
+  yield* ipc.handle(macUnlockSetAsk);
+  yield* ipc.handle(macUnlockForTask);
+  yield* ipc.handle(macUnlockRespond);
+  yield* ipc.handle(macUnlockRelock);
+  startDesktopUnlockPromptWatcher();
+  yield* ipc.handle(vexoAwakeStatus);
+  yield* ipc.handle(vexoAwakeSet);
+  yield* ipc.handle(vexoBandStatus);
+  yield* ipc.handle(vexoBandScan);
   for (const previewMethod of PreviewIpc.methods) {
     // Explicit types preserve the error/service union of these heterogeneous preview methods.
     yield* ipc.handle<

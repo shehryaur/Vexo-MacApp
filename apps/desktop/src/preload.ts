@@ -1,5 +1,6 @@
 import type {
   DesktopBridge,
+  DesktopMacUnlockConfirmEvent,
   DesktopPreviewAnnotationVoiceEvent,
   DesktopPreviewFindResultEvent,
   DesktopPreviewOpenLinkEvent,
@@ -568,6 +569,38 @@ contextBridge.exposeInMainWorld("desktopBridge", {
       ipcRenderer.on(IpcChannels.PREVIEW_FIND_RESULT_CHANNEL, wrappedListener);
       return () =>
         ipcRenderer.removeListener(IpcChannels.PREVIEW_FIND_RESULT_CHANNEL, wrappedListener);
+    },
+  },
+  captureFrontWindow: () => ipcRenderer.invoke(IpcChannels.CAPTURE_FRONT_WINDOW_CHANNEL),
+  vexoAwake: {
+    status: () => ipcRenderer.invoke(IpcChannels.VEXO_AWAKE_STATUS_CHANNEL),
+    setActive: (active) => ipcRenderer.invoke(IpcChannels.VEXO_AWAKE_SET_CHANNEL, active),
+  },
+  vexoBand: {
+    status: () => ipcRenderer.invoke(IpcChannels.VEXO_BAND_STATUS_CHANNEL),
+    scan: () => ipcRenderer.invoke(IpcChannels.VEXO_BAND_SCAN_CHANNEL),
+  },
+  macUnlock: {
+    status: () => ipcRenderer.invoke(IpcChannels.MAC_UNLOCK_STATUS_CHANNEL),
+    savePassword: (password) => ipcRenderer.invoke(IpcChannels.MAC_UNLOCK_SAVE_CHANNEL, password),
+    clearPassword: () => ipcRenderer.invoke(IpcChannels.MAC_UNLOCK_CLEAR_CHANNEL),
+    setAskBeforeUnlock: (askBeforeUnlock) =>
+      ipcRenderer.invoke(IpcChannels.MAC_UNLOCK_SET_ASK_CHANNEL, askBeforeUnlock),
+    unlockForTask: () => ipcRenderer.invoke(IpcChannels.MAC_UNLOCK_UNLOCK_CHANNEL),
+    respondToUnlock: (id, approved) =>
+      ipcRenderer.invoke(IpcChannels.MAC_UNLOCK_RESPOND_CHANNEL, { id, approved }),
+    relockIfAbandoned: () => ipcRenderer.invoke(IpcChannels.MAC_UNLOCK_RELOCK_CHANNEL),
+    onUnlockConfirm: (listener) => {
+      const wrappedListener = (_event: Electron.IpcRendererEvent, payload: unknown) => {
+        if (typeof payload !== "object" || payload === null) return;
+        if (!("id" in payload) || typeof payload.id !== "string") return;
+        if (!("open" in payload) || typeof payload.open !== "boolean") return;
+        const event: DesktopMacUnlockConfirmEvent = { id: payload.id, open: payload.open };
+        listener(event);
+      };
+      ipcRenderer.on(IpcChannels.MAC_UNLOCK_CONFIRM_CHANNEL, wrappedListener);
+      return () =>
+        ipcRenderer.removeListener(IpcChannels.MAC_UNLOCK_CONFIRM_CHANNEL, wrappedListener);
     },
   },
 } satisfies DesktopBridge);

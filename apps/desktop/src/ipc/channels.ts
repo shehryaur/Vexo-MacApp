@@ -154,3 +154,19 @@ export const COMPLETE_LEGACY_LOCAL_STORAGE_CHANNEL = "desktop:complete-legacy-lo
 export const RESTART_AUDIO_SERVICE_CHANNEL = "desktop:restart-audio-service";
 
 export const START_FILE_DRAG_CHANNEL = "desktop:start-file-drag";
+
+export const CAPTURE_FRONT_WINDOW_CHANNEL = "desktop:capture-front-window";
+
+export const MAC_UNLOCK_STATUS_CHANNEL = "desktop:mac-unlock-status";
+export const MAC_UNLOCK_SAVE_CHANNEL = "desktop:mac-unlock-save";
+export const MAC_UNLOCK_CLEAR_CHANNEL = "desktop:mac-unlock-clear";
+export const MAC_UNLOCK_SET_ASK_CHANNEL = "desktop:mac-unlock-set-ask";
+export const MAC_UNLOCK_UNLOCK_CHANNEL = "desktop:mac-unlock-unlock";
+export const MAC_UNLOCK_RESPOND_CHANNEL = "desktop:mac-unlock-respond";
+export const MAC_UNLOCK_RELOCK_CHANNEL = "desktop:mac-unlock-relock";
+export const MAC_UNLOCK_CONFIRM_CHANNEL = "desktop:mac-unlock-confirm";
+
+export const VEXO_AWAKE_STATUS_CHANNEL = "desktop:vexo-awake-status";
+export const VEXO_AWAKE_SET_CHANNEL = "desktop:vexo-awake-set";
+export const VEXO_BAND_STATUS_CHANNEL = "desktop:vexo-band-status";
+export const VEXO_BAND_SCAN_CHANNEL = "desktop:vexo-band-scan";

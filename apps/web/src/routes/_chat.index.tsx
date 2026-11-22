@@ -1,12 +1,20 @@
 import { workspaceAreaProps } from "../lib/workspaceFocus";
 import { RefreshIcon } from "~/components/ui/refresh-icon";
 import { scopeProjectRef } from "@t3tools/client-runtime/environment";
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { T, useGT } from "gt-react";
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
 import { isElectron } from "../env";
 import { NoProjectsHero } from "../components/NoProjectsHero";
+import { VexoHome } from "../components/vexo/VexoHome";
+import {
+  attachCapturedWindowToDraft,
+  CAPTURE_THREAD_PROMPT,
+  capturedWindowDataUrl,
+} from "../components/vexo/capture";
+import { useComposerDraftStore } from "../composerDraftStore";
+import type { DesktopFrontWindowCapture } from "@t3tools/contracts";
 import { sortScopedProjectsForSidebar } from "../components/Sidebar.logic";
 import { Button } from "../components/ui/button";
 import { HostedEmptyState } from "../components/HostedEmptyState";
@@ -39,11 +47,8 @@ function IndexDraftLanding() {
   const threads = useVisibleThreadShells();
   const bootstrapped = useAllEnvironmentShellsBootstrapped();
   const handleNewThread = useNewThreadHandler();
-  const router = useRouter();
-  // Read at effect time; this page can stay mounted while the router is already navigating away.
-  const isStillOnIndex = useEffectEvent(() => router.state.location.pathname === "/");
-  const startedAttemptRef = useRef<number | null>(null);
-  const [startState, setStartState] = useState({ failed: false, retryRequest: 0 });
+  const openingRef = useRef(false);
+  const [startState, setStartState] = useState({ failed: false, opening: false });
 
   const mostRecentProject =
     sortScopedProjectsForSidebar(
@@ -51,41 +56,97 @@ function IndexDraftLanding() {
       threads,
       "updated_at",
     )[0] ?? null;
-  const attempt = startState.retryRequest;
 
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- starts a draft thread in the most recent project and navigates to it while still on the index
-  useEffect(() => {
-    // Starting a draft after the user has left would replace the page they picked.
-    if (mostRecentProject === null || startedAttemptRef.current === attempt || !isStillOnIndex()) {
-      return;
-    }
+  const openDraft = (prompt?: string) => {
+    if (openingRef.current || mostRecentProject === null) return;
     const projectRef = scopeProjectRef(mostRecentProject.environmentId, mostRecentProject.id);
     if (readProject(projectRef) === null) {
+      setStartState({ failed: true, opening: false });
       return;
     }
-    startedAttemptRef.current = attempt;
-    void handleNewThread(projectRef, { replace: true })
+    openingRef.current = true;
+    setStartState({ failed: false, opening: true });
+    void handleNewThread(projectRef, {
+      replace: true,
+      ...(prompt === undefined ? {} : { prompt }),
+    })
       .then((opened) => {
         if (opened === null) {
-          setStartState((state) => ({ ...state, retryRequest: state.retryRequest + 1 }));
+          openingRef.current = false;
+          setStartState({ failed: true, opening: false });
         }
       })
       .catch(() => {
-        setStartState((state) => ({ ...state, failed: true }));
+        openingRef.current = false;
+        setStartState({ failed: true, opening: false });
       });
-  }, [attempt, handleNewThread, mostRecentProject]);
+  };
 
-  if (mostRecentProject !== null) {
-    return startState.failed ? (
+  const handleCaptureAttached = (capture: DesktopFrontWindowCapture) => {
+    if (!capturedWindowDataUrl(capture)) {
+      openDraft(CAPTURE_THREAD_PROMPT);
+      return;
+    }
+    if (openingRef.current || mostRecentProject === null) return;
+    const projectRef = scopeProjectRef(mostRecentProject.environmentId, mostRecentProject.id);
+    if (readProject(projectRef) === null) {
+      setStartState({ failed: true, opening: false });
+      return;
+    }
+    openingRef.current = true;
+    setStartState({ failed: false, opening: true });
+    void handleNewThread(projectRef, { replace: true })
+      .then(async (opened) => {
+        if (opened === null) {
+          openingRef.current = false;
+          setStartState({ failed: true, opening: false });
+          return;
+        }
+        let attached = false;
+        try {
+          attached = await attachCapturedWindowToDraft(opened.draftId, capture);
+        } catch {
+          attached = false;
+        }
+        if (!attached) {
+          useComposerDraftStore.getState().setPrompt(opened.draftId, CAPTURE_THREAD_PROMPT);
+        }
+      })
+      .catch(() => {
+        openingRef.current = false;
+        setStartState({ failed: true, opening: false });
+      });
+  };
+
+  if (startState.failed) {
+    return (
       <DraftStartError
         onRetry={() => {
-          setStartState((state) => ({
-            failed: false,
-            retryRequest: state.retryRequest + 1,
-          }));
+          openingRef.current = false;
+          setStartState({ failed: false, opening: false });
         }}
       />
-    ) : null;
+    );
+  }
+
+  if (mostRecentProject !== null) {
+    return (
+      <VexoHome
+        busy={startState.opening}
+        speechTarget={{
+          environmentId: mostRecentProject.environmentId,
+          projectId: mostRecentProject.id,
+          projectName: mostRecentProject.title,
+        }}
+        onNewChat={() => {
+          openDraft();
+        }}
+        onSubmit={(prompt) => {
+          openDraft(prompt);
+        }}
+        onCaptureAttached={handleCaptureAttached}
+      />
+    );
   }
   // A pending environment cannot prove the workspace is empty.
   return bootstrapped ? <NoProjectsHero /> : null;

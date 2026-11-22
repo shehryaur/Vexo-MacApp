@@ -21,6 +21,7 @@
     "@t3tools/shared": "workspace:*",
     "@t3tools/ssh": "workspace:*",
     "@t3tools/tailscale": "workspace:*",
+    "@t3tools/vexo-mac": "workspace:*",
     "dbus-next": "0.10.2",
     "effect": "catalog:",
     "electron": "44.10.1",
@@ -44,5 +45,5 @@
     "tailwindcss": "^4.0.0",
     "vite-plus": "catalog:"
   },
-  "productName": "T3 Code (Beta)"
+  "productName": "VexoMacApp"
 }

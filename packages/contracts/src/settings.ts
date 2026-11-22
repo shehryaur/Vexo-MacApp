@@ -1,4 +1,5 @@
 import { EasDeviceHostConfigs, SimlockDeviceHostConfigs, SshDeviceHostConfigs } from "./device.ts";
+import { DEFAULT_VEXO_TIMELINE_SETTINGS, VexoTimelineSettings } from "./vexoTimeline.ts";
 import {
   AuthOrchestrationOperateScope,
   AuthAccessWriteScope,
@@ -1615,6 +1616,10 @@ export const ServerSettings = Schema.Struct({
 
   /** Sent by the Usage tab with each summary request to this environment; edit in settings.json. Invalid values are ignored. */
   usageModelFilter: ForwardCompatibleOptional(UsageModelFilter),
+
+  vexoTimeline: VexoTimelineSettings.pipe(
+    Schema.withDecodingDefault(Effect.succeed(DEFAULT_VEXO_TIMELINE_SETTINGS)),
+  ),
 });
 export type ServerSettings = typeof ServerSettings.Type;
 
@@ -2003,6 +2008,8 @@ export const ServerSettingsPatch = Schema.Struct({
   usageModelAliases: Schema.optionalKey(
     Schema.Record(TrimmedNonEmptyString, Schema.NullOr(TrimmedNonEmptyString)),
   ),
+
+  vexoTimeline: Schema.optionalKey(VexoTimelineSettings),
 });
 export type ServerSettingsPatch = typeof ServerSettingsPatch.Type;
 

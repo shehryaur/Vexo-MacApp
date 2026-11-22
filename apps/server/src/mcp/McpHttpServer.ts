@@ -96,6 +96,10 @@ import * as HtmlHandlers from "./toolkits/html/handlers.ts";
 import { MessageToolkit } from "./toolkits/message/tools.ts";
 import * as MessageHandlers from "./toolkits/message/handlers.ts";
 import { HtmlPreviewTool, HtmlPreviewToolkit, HtmlRenderToolkit } from "./toolkits/html/tools.ts";
+import * as VexoDesktopHandlers from "./toolkits/vexoDesktop/handlers.ts";
+import { VexoDesktopToolkit } from "./toolkits/vexoDesktop/tools.ts";
+import * as VexoTranscriptHandlers from "./toolkits/vexoTranscript/handlers.ts";
+import { VexoTranscriptToolkit } from "./toolkits/vexoTranscript/tools.ts";
 import { MCP_HTTP_PATH } from "../httpCors.ts";
 import { requestUrl } from "../requestUrl.ts";
 
@@ -1350,6 +1354,13 @@ export const layerDeviceToolkit = Layer.mergeAll(
   layerDeviceScreenshotRegistration,
 );
 
+const layerVexoDesktopToolkit = toolkitRegistration(VexoDesktopToolkit, VexoDesktopHandlers.layer);
+
+const layerVexoTranscriptToolkit = toolkitRegistration(
+  VexoTranscriptToolkit,
+  VexoTranscriptHandlers.layer,
+);
+
 /**
  * `McpServer` for in-process calls, which provide `McpInvocationContext`
  * around `callTool` as the auth middleware does for each /mcp request.
@@ -1393,6 +1404,8 @@ export const layerTools = Layer.mergeAll(
   layerPullRequestsToolkit,
   layerIssuesToolkit,
   layerDeviceToolkit,
+  layerVexoDesktopToolkit,
+  layerVexoTranscriptToolkit,
   layerHtmlToolkit,
   layerMessageToolkit,
 );

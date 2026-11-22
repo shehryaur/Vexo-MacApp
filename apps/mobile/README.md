@@ -163,3 +163,7 @@ vp run eas:android:dev
 vp run eas:android:preview:dev
 vp run eas:android:preview
 ```
+
+## Watch the Mac screen from a phone
+
+The native app does not include a screen viewer. On the phone, open this environment in the mobile browser (the same server the app is signed into) and choose **Screen** on the Vexo home rail. The page shows a view-only JPEG of the Mac a couple of times a second. It does not click, type, or otherwise control the Mac. A locked session or an unlock in progress shows “Locked / redacted”. If Screen Recording permission is missing, the page shows that error.

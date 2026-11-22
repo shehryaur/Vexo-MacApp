@@ -71,6 +71,16 @@ import {
   EnvironmentSpeechTranscriptionResult,
 } from "./speech.ts";
 import { PeerLinkClientPairingCredential, PeerLinkClientPairingRequest } from "./peerLink.ts";
+import { VexoScreenCaptureError, VexoScreenFrame } from "./vexoScreen.ts";
+import { VexoTimelineDayView } from "./vexoTimeline.ts";
+import {
+  VexoTranscriptContext,
+  VexoTranscriptContextRequest,
+  VexoTranscriptIngestRequest,
+  VexoTranscriptIngestResult,
+  VexoTranscriptList,
+  VexoTranscriptRecentQuery,
+} from "./vexoTranscript.ts";
 import { SecretReference } from "./secretReference.ts";
 import {
   OrchestrationV2ShellHttpSnapshot,
@@ -1086,6 +1096,49 @@ const webhookEndpoint = {
 } as const;
 const WEBHOOK_PATH = "/api/hooks/:hookId/:token";
 
+export class EnvironmentVexoHttpApi extends HttpApiGroup.make("vexo")
+  .add(
+    HttpApiEndpoint.get("screenFrame", "/api/vexo/screen/frame", {
+      headers: OptionalBearerHeaders,
+      success: VexoScreenFrame,
+      error: [...EnvironmentScopedOperationErrors, VexoScreenCaptureError],
+    }).middleware(EnvironmentAuthenticatedAuth),
+  )
+  .add(
+    HttpApiEndpoint.post("ingestTranscript", "/api/vexo/transcript", {
+      headers: OptionalBearerHeaders,
+      payload: VexoTranscriptIngestRequest,
+      success: VexoTranscriptIngestResult,
+      error: EnvironmentScopedOperationErrors,
+    }).middleware(EnvironmentAuthenticatedAuth),
+  )
+  .add(
+    HttpApiEndpoint.get("transcriptRecent", "/api/vexo/transcript", {
+      headers: OptionalBearerHeaders,
+      query: VexoTranscriptRecentQuery,
+      success: VexoTranscriptList,
+      error: EnvironmentScopedOperationErrors,
+    }).middleware(EnvironmentAuthenticatedAuth),
+  )
+  .add(
+    HttpApiEndpoint.post("transcriptContext", "/api/vexo/transcript/context", {
+      headers: OptionalBearerHeaders,
+      payload: VexoTranscriptContextRequest,
+      success: VexoTranscriptContext,
+      error: EnvironmentScopedOperationErrors,
+    }).middleware(EnvironmentAuthenticatedAuth),
+  )
+  .add(
+    HttpApiEndpoint.get("timelineDay", "/api/vexo/timeline", {
+      headers: OptionalBearerHeaders,
+      query: Schema.Struct({
+        day: Schema.optionalKey(Schema.String),
+      }),
+      success: VexoTimelineDayView,
+      error: EnvironmentScopedOperationErrors,
+    }).middleware(EnvironmentAuthenticatedAuth),
+  ) {}
+
 class EnvironmentWebhooksHttpApi extends HttpApiGroup.make("webhooks")
   .add(HttpApiEndpoint.post("webhookPost", WEBHOOK_PATH, webhookEndpoint))
   .add(HttpApiEndpoint.put("webhookPut", WEBHOOK_PATH, webhookEndpoint))
@@ -1101,6 +1154,7 @@ export class EnvironmentHttpApi extends HttpApi.make("environment")
   .add(EnvironmentPullRequestsHttpApi)
   .add(EnvironmentProjectsHttpApi)
   .add(EnvironmentVoiceHttpApi)
+  .add(EnvironmentVexoHttpApi)
   .add(EnvironmentConnectHttpApi)
   .add(EnvironmentWebhooksHttpApi)
   .add(EnvironmentPeerLinkHttpApi) {}

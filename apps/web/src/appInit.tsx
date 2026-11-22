@@ -17,6 +17,7 @@ import { retainThreadOverlaysForThread } from "./components/chat/threadOverlayRe
 import { resolveWindowTitleThreadStatus } from "./components/Sidebar.logic";
 import { startBackgroundThreadAnnouncements } from "./components/BackgroundThreadAnnouncer";
 import { startSshPasswordPromptQueue } from "./components/desktop/SshPasswordPromptDialog";
+import { startMacUnlockConfirmQueue } from "./lib/macUnlock";
 import { startHostFreezeToasts } from "./components/HostFreezeToastCoordinator";
 import { startKeybindingsUpdateToasts } from "./components/KeybindingsUpdateToast";
 import { startLegacyThreadMigrationToast } from "./components/LegacyThreadMigrationToast";
@@ -303,6 +304,7 @@ export function startAppServices(): AppRouter {
   startBackgroundThreadAnnouncements(appAtomRegistry, router);
   startThreadVisitedMigration(appAtomRegistry);
   startSshPasswordPromptQueue();
+  startMacUnlockConfirmQueue();
 
   startKeybindingsUpdateToasts();
   startSlowRpcRequestToasts();

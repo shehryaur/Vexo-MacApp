@@ -26,9 +26,11 @@ export type SettingsPath =
   | "/settings/chat"
   | "/settings/diffs"
   | "/settings/keybindings"
+  | "/settings/mac-unlock"
   | "/settings/snap-shot"
   | "/settings/providers"
   | "/settings/threads"
+  | "/settings/timeline"
   | "/settings/browser"
   | "/settings/devices"
   | "/settings/scheduled-tasks"
@@ -102,9 +104,11 @@ export const SETTINGS_SECTION_LABELS: Readonly<Record<SettingsPath, string>> = {
   "/settings/chat": msg("Chat"),
   "/settings/diffs": msg("Diffs & pull requests"),
   "/settings/keybindings": msg("Keybindings"),
+  "/settings/mac-unlock": msg("Mac unlock"),
   "/settings/snap-shot": msg("SnapShots"),
   "/settings/providers": msg("Providers"),
   "/settings/threads": msg("Threads"),
+  "/settings/timeline": msg("Timeline"),
   "/settings/browser": msg("Browser"),
   "/settings/devices": msg("Devices"),
   "/settings/scheduled-tasks": msg("Scheduled tasks"),
@@ -148,6 +152,8 @@ const ALL_SETTINGS_NAV_GROUPS: ReadonlyArray<SettingsNavGroup> = [
       "/settings/keybindings",
       "/settings/voice",
       "/settings/snap-shot",
+      "/settings/mac-unlock",
+      "/settings/timeline",
     ],
   },
   {
@@ -1050,6 +1056,75 @@ export const SETTINGS_SEARCH_ITEMS = [
     targetId: "snap-shot-enabled",
   },
   {
+    id: "mac-unlock-status",
+    title: msg("Mac unlock"),
+    to: "/settings/mac-unlock",
+    searchTerms: [msg("password keychain lock screen login saved")],
+    desktopOnly: true,
+    macOnly: true,
+  },
+  {
+    id: "mac-unlock-password",
+    title: msg("Login password"),
+    to: "/settings/mac-unlock",
+    targetId: "mac-unlock-password",
+    searchTerms: [msg("save clear keychain mac login password")],
+    desktopOnly: true,
+    macOnly: true,
+  },
+  {
+    id: "mac-unlock-ask",
+    title: msg("Ask before unlocking"),
+    to: "/settings/mac-unlock",
+    targetId: "mac-unlock-ask",
+    searchTerms: [msg("confirm approve deny unlock task prompt")],
+    desktopOnly: true,
+    macOnly: true,
+  },
+  {
+    id: "mac-unlock-now",
+    title: msg("Unlock now"),
+    to: "/settings/mac-unlock",
+    targetId: "mac-unlock-now",
+    searchTerms: [msg("unlock mac confirm dialog lock screen")],
+    desktopOnly: true,
+    macOnly: true,
+  },
+  {
+    id: "vexo-timeline",
+    title: msg("Timeline memory plug-in"),
+    to: "/settings/timeline",
+    searchTerms: [msg("memory activities base url api key auth header path template day")],
+  },
+  {
+    id: "vexo-timeline-base-url",
+    title: msg("Timeline base URL"),
+    to: "/settings/timeline",
+    targetId: "vexo-timeline-base-url",
+    searchTerms: [msg("memory plug-in origin host")],
+  },
+  {
+    id: "vexo-timeline-auth-header",
+    title: msg("Timeline auth header"),
+    to: "/settings/timeline",
+    targetId: "vexo-timeline-auth-header",
+    searchTerms: [msg("authorization bearer header name")],
+  },
+  {
+    id: "vexo-timeline-api-key",
+    title: msg("Timeline API key"),
+    to: "/settings/timeline",
+    targetId: "vexo-timeline-api-key",
+    searchTerms: [msg("secret token credential memory")],
+  },
+  {
+    id: "vexo-timeline-activities-path",
+    title: msg("Timeline activities path"),
+    to: "/settings/timeline",
+    targetId: "vexo-timeline-activities-path",
+    searchTerms: [msg("activities path template day")],
+  },
+  {
     id: "providers",
     title: msg("Providers"),
     to: "/settings/providers",
@@ -1505,6 +1580,8 @@ const SETTINGS_CATEGORY_SCOPES: Readonly<Record<SettingsPath, SettingsSearchScop
   "/settings/appearance": null,
   "/settings/chat": null,
   "/settings/diffs": null,
+  "/settings/mac-unlock": null,
+  "/settings/timeline": null,
   "/settings/snap-shot": null,
   "/settings/keybindings": null,
   "/settings/providers": null,
