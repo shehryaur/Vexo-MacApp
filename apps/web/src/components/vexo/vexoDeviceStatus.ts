@@ -6,6 +6,7 @@ import { m } from "~/i18n/messages";
 const AWAKE_BROWSER: DesktopVexoAwakeStatus = {
   active: false,
   mode: "off",
+  lidClosedReady: false,
   sleepDisabled: false,
   batteryPercent: null,
   onExternalPower: null,
@@ -45,6 +46,12 @@ export function setAwakeActive(active: boolean): Promise<DesktopVexoAwakeStatus>
   const setActive = bridge()?.vexoAwake?.setActive;
   if (!setActive) return Promise.resolve(AWAKE_BROWSER);
   return setActive(active).catch(() => AWAKE_FAILED);
+}
+
+export function removeAwakeSetup(): Promise<DesktopVexoAwakeStatus> {
+  const removeSetup = bridge()?.vexoAwake?.removeSetup;
+  if (!removeSetup) return Promise.resolve(AWAKE_BROWSER);
+  return removeSetup().catch(() => AWAKE_FAILED);
 }
 
 export function readBandStatus(): Promise<DesktopVexoBandStatus> {

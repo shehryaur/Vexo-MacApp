@@ -1,16 +1,23 @@
 import type { DesktopVexoAwakeStatus, DesktopVexoBandStatus } from "@t3tools/contracts";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { readAwakeStatus, readBandStatus, scanBand, setAwakeActive } from "./vexoDeviceStatus";
+import {
+  readAwakeStatus,
+  readBandStatus,
+  removeAwakeSetup,
+  scanBand,
+  setAwakeActive,
+} from "./vexoDeviceStatus";
 
 const mockAwake: DesktopVexoAwakeStatus = {
   active: true,
-  mode: "user-space",
-  sleepDisabled: false,
+  mode: "lid-closed",
+  lidClosedReady: true,
+  sleepDisabled: true,
   batteryPercent: 85,
   onExternalPower: true,
   thermal: "nominal",
-  detail: "Holding with caffeinate.",
+  detail: "Lid-closed is on.",
 };
 
 const mockBand: DesktopVexoBandStatus = {
@@ -49,6 +56,7 @@ describe("vexoDeviceStatus in desktop mode", () => {
         vexoAwake: {
           status: async () => mockAwake,
           setActive: async (active: boolean) => ({ ...mockAwake, active }),
+          removeSetup: async () => ({ ...mockAwake, active: false, lidClosedReady: false }),
         },
         vexoBand: {
           status: async () => mockBand,
@@ -62,6 +70,9 @@ describe("vexoDeviceStatus in desktop mode", () => {
 
     const toggled = await setAwakeActive(false);
     expect(toggled.active).toBe(false);
+
+    const removed = await removeAwakeSetup();
+    expect(removed.lidClosedReady).toBe(false);
 
     const band = await readBandStatus();
     expect(band).toEqual(mockBand);

@@ -55,7 +55,13 @@ import { VexoHeyDictation, type VexoSpeechTarget } from "./VexoHeyDictation";
 import { VexoMark } from "./VexoMark";
 import { VexoScreenWatch } from "./VexoScreenWatch";
 import { VexoTimelinePanel } from "./VexoTimelinePanel";
-import { readAwakeStatus, readBandStatus, scanBand, setAwakeActive } from "./vexoDeviceStatus";
+import {
+  readAwakeStatus,
+  readBandStatus,
+  removeAwakeSetup,
+  scanBand,
+  setAwakeActive,
+} from "./vexoDeviceStatus";
 
 const DEFAULT_DISPLAY_NAME = "Shehryar";
 const FOCUS_RING =
@@ -199,6 +205,14 @@ export function VexoHome({
       setAwakePending(false);
     });
   };
+  const removeAwakePermission = () => {
+    if (awakePending) return;
+    setAwakePending(true);
+    void removeAwakeSetup().then((next) => {
+      setAwake(next);
+      setAwakePending(false);
+    });
+  };
   const toggleBand = () => {
     setDeferred(null);
     setBandOpen((open) => !open);
@@ -272,6 +286,7 @@ export function VexoHome({
             band={band}
             bandOpen={bandOpen}
             onToggleAwake={toggleAwake}
+            onRemoveAwakeSetup={removeAwakePermission}
             onToggleBand={toggleBand}
           />
         )}
@@ -642,6 +657,7 @@ function VexoMain({
   band,
   bandOpen,
   onToggleAwake,
+  onRemoveAwakeSetup,
   onToggleBand,
 }: {
   readonly dayPart: DayPart;
@@ -660,6 +676,7 @@ function VexoMain({
   readonly band: DesktopVexoBandStatus | null;
   readonly bandOpen: boolean;
   readonly onToggleAwake: () => void;
+  readonly onRemoveAwakeSetup: () => void;
   readonly onToggleBand: () => void;
 }) {
   return (
@@ -674,6 +691,7 @@ function VexoMain({
             band={band}
             bandOpen={bandOpen}
             onToggleAwake={onToggleAwake}
+            onRemoveAwakeSetup={onRemoveAwakeSetup}
             onToggleBand={onToggleBand}
           />
           <h1 className="mt-10 text-center text-[28px] font-semibold tracking-tight text-white">
@@ -725,6 +743,7 @@ function StatusRow({
   band,
   bandOpen,
   onToggleAwake,
+  onRemoveAwakeSetup,
   onToggleBand,
 }: {
   readonly hostname: string;
@@ -734,12 +753,19 @@ function StatusRow({
   readonly band: DesktopVexoBandStatus | null;
   readonly bandOpen: boolean;
   readonly onToggleAwake: () => void;
+  readonly onRemoveAwakeSetup: () => void;
   readonly onToggleBand: () => void;
 }) {
   const gt = useGT();
   const holding = awake?.active === true;
   const awakeLabel =
-    awake === null ? gt("Lid-closed: …") : holding ? gt("Lid-closed: On") : gt("Lid-closed: Off");
+    awake === null
+      ? gt("Lid-closed: …")
+      : awake.mode === "lid-closed"
+        ? gt("Lid-closed: On")
+        : awake.mode === "user-space"
+          ? gt("Lid-closed: Idle only")
+          : gt("Lid-closed: Off");
   const bandText =
     band === null
       ? gt("Band: …")
@@ -791,7 +817,20 @@ function StatusRow({
         </button>
       </div>
       <p id="vexo-awake-note" className="text-[12px] leading-4 text-white/40">
-        {awake?.detail ?? <T>Checking the user-space hold.</T>}
+        {awake?.detail ?? <T>Checking the awake hold.</T>}
+        {awake?.lidClosedReady && !holding ? (
+          <>
+            {" "}
+            <button
+              type="button"
+              disabled={awakePending}
+              className={cn("underline underline-offset-2 hover:text-white/70", FOCUS_RING)}
+              onClick={onRemoveAwakeSetup}
+            >
+              <T>Remove lid-closed permission</T>
+            </button>
+          </>
+        ) : null}
       </p>
     </div>
   );

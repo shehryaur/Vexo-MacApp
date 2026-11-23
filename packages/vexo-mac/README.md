@@ -35,9 +35,10 @@ Before typing, it writes `~/Library/Application Support/VexoMac/unlock.json` wit
 
 ## Awake
 
-`setAwake(true)` holds idle sleep with `/usr/bin/caffeinate -dims -w <pid>`. `awakeStatus()` reports whether that hold is running.
-`pmset` is read-only here (`-g`, `-g batt`, `-g therm`). The hold stays off below 20% battery, when the thermal text says critical, when the battery percent cannot be read, and after 7 days.
-A closed lid on battery still sleeps. `scripts/awake-root-helper.sh` only documents that root path and exits 64. Nothing in this package runs it, and nothing calls a private power API.
+`setAwake(true)` keeps the Mac awake with the lid closed, even on battery, by running `sudo -n /usr/bin/pmset -a disablesleep 1`.
+The first time, macOS asks for an admin password to install `/etc/sudoers.d/vexomacapp-awake`, which allows only `pmset -a disablesleep 0` and `1`. If that is declined, the hold falls back to `caffeinate -dims`, which a closed lid ignores.
+Sleep comes back below 20% battery, at critical heat, when the battery cannot be read, after 7 days, and when the app quits, crashes or hangs (a detached watchdog), or after a restart (a login agent, `com.t3tools.vexomacapp.awake-restore`).
+`removeLidClosedSetup()` deletes the sudoers rule and the login agent. No private power API is called.
 
 ## Band
 

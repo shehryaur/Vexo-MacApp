@@ -103,7 +103,13 @@ import {
   macUnlockStatus,
   startDesktopUnlockPromptWatcher,
 } from "./methods/macUnlock.ts";
-import { vexoAwakeSet, vexoAwakeStatus, vexoBandScan, vexoBandStatus } from "./methods/vexoMac.ts";
+import {
+  vexoAwakeRemoveSetup,
+  vexoAwakeSet,
+  vexoAwakeStatus,
+  vexoBandScan,
+  vexoBandStatus,
+} from "./methods/vexoMac.ts";
 
 export const installDesktopIpcHandlers = Effect.fn("desktop.ipc.installHandlers")(function* () {
   const ipc = yield* DesktopIpc.DesktopIpc;
@@ -205,6 +211,7 @@ export const installDesktopIpcHandlers = Effect.fn("desktop.ipc.installHandlers"
   startDesktopUnlockPromptWatcher();
   yield* ipc.handle(vexoAwakeStatus);
   yield* ipc.handle(vexoAwakeSet);
+  yield* ipc.handle(vexoAwakeRemoveSetup);
   yield* ipc.handle(vexoBandStatus);
   yield* ipc.handle(vexoBandScan);
   for (const previewMethod of PreviewIpc.methods) {

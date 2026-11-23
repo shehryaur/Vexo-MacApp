@@ -31,7 +31,7 @@ export type { Frame } from "./screen.ts";
 export { fetchTimeline } from "./timeline.ts";
 export type { TimelineFetchResult } from "./timeline.ts";
 
-export { awakeStatus, setAwake } from "./awake.ts";
+export { awakeStatus, removeLidClosedSetup, setAwake } from "./awake.ts";
 export type { AwakeStatus } from "./awake.ts";
 
 export { bandScan, bandStatus } from "./band.ts";

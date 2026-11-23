@@ -575,6 +575,7 @@ contextBridge.exposeInMainWorld("desktopBridge", {
   vexoAwake: {
     status: () => ipcRenderer.invoke(IpcChannels.VEXO_AWAKE_STATUS_CHANNEL),
     setActive: (active) => ipcRenderer.invoke(IpcChannels.VEXO_AWAKE_SET_CHANNEL, active),
+    removeSetup: () => ipcRenderer.invoke(IpcChannels.VEXO_AWAKE_REMOVE_SETUP_CHANNEL),
   },
   vexoBand: {
     status: () => ipcRenderer.invoke(IpcChannels.VEXO_BAND_STATUS_CHANNEL),

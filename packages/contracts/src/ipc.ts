@@ -1167,12 +1167,14 @@ export type DesktopMacUnlockConfirmEvent = typeof DesktopMacUnlockConfirmEventSc
 const VexoDetailSchema = Schema.String.check(Schema.isMaxLength(400));
 
 /**
- * User-space lid-closed hold. `active` means `caffeinate` is running in this app.
- * This does not report a root `pmset sleepdisabled` change, and it does not use a private API.
+ * Awake hold. `lid-closed` runs `pmset -a disablesleep 1` through a two-command sudoers rule;
+ * `user-space` is the caffeinate fallback that a closed lid ignores. `lidClosedReady` means the
+ * rule is installed, so turning the hold on asks for no password.
  */
 export const DesktopVexoAwakeStatusSchema = Schema.Struct({
   active: Schema.Boolean,
-  mode: Schema.Literals(["off", "user-space"]),
+  mode: Schema.Literals(["off", "user-space", "lid-closed"]),
+  lidClosedReady: Schema.Boolean,
   sleepDisabled: Schema.Boolean,
   batteryPercent: Schema.NullOr(
     Schema.Int.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(100)),
@@ -1359,6 +1361,8 @@ export interface DesktopBridge {
   vexoAwake: {
     status: () => Promise<DesktopVexoAwakeStatus>;
     setActive: (active: boolean) => Promise<DesktopVexoAwakeStatus>;
+    /** Deletes the lid-closed sudoers rule and restore agent; macOS asks for a password. */
+    removeSetup: () => Promise<DesktopVexoAwakeStatus>;
   };
   /**
    * Nearby or connected radios that look like a Vexo band.

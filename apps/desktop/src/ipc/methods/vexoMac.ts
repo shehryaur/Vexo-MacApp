@@ -4,7 +4,13 @@ import {
   type DesktopVexoAwakeStatus,
   type DesktopVexoBandStatus,
 } from "@t3tools/contracts";
-import { awakeStatus, bandScan, bandStatus, setAwake } from "@t3tools/vexo-mac";
+import {
+  awakeStatus,
+  bandScan,
+  bandStatus,
+  removeLidClosedSetup,
+  setAwake,
+} from "@t3tools/vexo-mac";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
@@ -14,6 +20,7 @@ import * as DesktopIpc from "../DesktopIpc.ts";
 const AWAKE_UNAVAILABLE: DesktopVexoAwakeStatus = {
   active: false,
   mode: "off",
+  lidClosedReady: false,
   sleepDisabled: false,
   batteryPercent: null,
   onExternalPower: null,
@@ -49,6 +56,20 @@ export const vexoAwakeSet = DesktopIpc.makeIpcMethod({
     Effect.promise(async () => {
       try {
         return await setAwake(active);
+      } catch {
+        return AWAKE_UNAVAILABLE;
+      }
+    }),
+});
+
+export const vexoAwakeRemoveSetup = DesktopIpc.makeIpcMethod({
+  channel: IpcChannels.VEXO_AWAKE_REMOVE_SETUP_CHANNEL,
+  payload: Schema.Void,
+  result: DesktopVexoAwakeStatusSchema,
+  handler: () =>
+    Effect.promise(async () => {
+      try {
+        return await removeLidClosedSetup();
       } catch {
         return AWAKE_UNAVAILABLE;
       }

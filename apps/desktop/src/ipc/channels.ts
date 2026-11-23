@@ -168,5 +168,6 @@ export const MAC_UNLOCK_CONFIRM_CHANNEL = "desktop:mac-unlock-confirm";
 
 export const VEXO_AWAKE_STATUS_CHANNEL = "desktop:vexo-awake-status";
 export const VEXO_AWAKE_SET_CHANNEL = "desktop:vexo-awake-set";
+export const VEXO_AWAKE_REMOVE_SETUP_CHANNEL = "desktop:vexo-awake-remove-setup";
 export const VEXO_BAND_STATUS_CHANNEL = "desktop:vexo-band-status";
 export const VEXO_BAND_SCAN_CHANNEL = "desktop:vexo-band-scan";
