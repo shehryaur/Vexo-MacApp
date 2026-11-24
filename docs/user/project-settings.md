@@ -195,6 +195,11 @@ resolve in one order: a project override, then the environment setting, then `t3
 built-in default. Leave a setting on **Inherit** to let the next tier decide.
 Browser access changes apply when an agent session next starts.
 
+**Settings → Browser → Agent access → Agent collaboration** (on mobile, the server settings Threads page) lets Claude sessions on this environment answer
+status requests from your other T3 Code sessions and ask them for status; a peer cannot approve
+edits, commands, destructive or external actions, or change settings. It is off by default, applies
+to Claude only, and takes effect when a thread's agent session next starts.
+
 New worktrees initialize git submodules recursively. If that step is slow because the repository
 declares many nested submodules, set **Submodules** in **Settings → Worktrees** under Advanced (with the project
 selected to override it there) to **Top level only** to stop at the ones the repository declares

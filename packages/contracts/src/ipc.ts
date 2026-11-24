@@ -1202,6 +1202,62 @@ export const DesktopVexoBandStatusSchema = Schema.Struct({
 });
 export type DesktopVexoBandStatus = typeof DesktopVexoBandStatusSchema.Type;
 
+/** One CLI session discovered by the Vexo connector (Claude / Codex / Grok / …). */
+export const DesktopVexoCliSessionSchema = Schema.Struct({
+  id: Schema.String.check(Schema.isMaxLength(120)),
+  provider: Schema.Literals(["claude", "codex", "grok", "antigravity", "other"]),
+  title: Schema.String.check(Schema.isMaxLength(200)),
+  cwd: Schema.String.check(Schema.isMaxLength(500)),
+  /**
+   * `idle` = session exists on this Mac but is not bridged right now.
+   * `offline` = connector itself cannot reach assistants (or last list while disconnected).
+   */
+  state: Schema.Literals(["ready", "busy", "setup", "idle", "offline"]),
+  connected: Schema.Boolean,
+  model: Schema.optional(Schema.String.check(Schema.isMaxLength(120))),
+});
+export type DesktopVexoCliSession = typeof DesktopVexoCliSessionSchema.Type;
+
+/**
+ * Sessions the Mac connector found under Claude / Codex / Grok homes.
+ * Empty when the connector is not running or has not published status yet.
+ */
+export const DesktopVexoCliSessionsStatusSchema = Schema.Struct({
+  available: Schema.Boolean,
+  sessions: Schema.Array(DesktopVexoCliSessionSchema).check(Schema.isMaxLength(500)),
+  detail: VexoDetailSchema,
+});
+export type DesktopVexoCliSessionsStatus = typeof DesktopVexoCliSessionsStatusSchema.Type;
+
+/** Resume a discovered Claude / Codex CLI session in Terminal (same path as Vexo Mac). */
+export const DesktopVexoCliSessionResumeInputSchema = Schema.Struct({
+  id: Schema.String.check(Schema.isMaxLength(120)),
+  provider: Schema.Literals(["claude", "codex", "grok", "antigravity", "other"]),
+  cwd: Schema.String.check(Schema.isMaxLength(500)),
+});
+export type DesktopVexoCliSessionResumeInput = typeof DesktopVexoCliSessionResumeInputSchema.Type;
+
+export const DesktopVexoCliSessionResumeResultSchema = Schema.Struct({
+  ok: Schema.Boolean,
+  detail: VexoDetailSchema,
+});
+export type DesktopVexoCliSessionResumeResult = typeof DesktopVexoCliSessionResumeResultSchema.Type;
+
+/** Rename a discovered CLI session. Claude sessions get Claude Code's own `custom-title` record. */
+export const DesktopVexoCliSessionRenameInputSchema = Schema.Struct({
+  id: Schema.String.check(Schema.isMaxLength(120)),
+  provider: Schema.Literals(["claude", "codex", "grok", "antigravity", "other"]),
+  title: Schema.String.check(Schema.isMaxLength(500)),
+});
+export type DesktopVexoCliSessionRenameInput = typeof DesktopVexoCliSessionRenameInputSchema.Type;
+
+export const DesktopVexoCliSessionRenameResultSchema = Schema.Struct({
+  ok: Schema.Boolean,
+  title: Schema.optional(Schema.String.check(Schema.isMaxLength(200))),
+  detail: VexoDetailSchema,
+});
+export type DesktopVexoCliSessionRenameResult = typeof DesktopVexoCliSessionRenameResultSchema.Type;
+
 /** Keychain status and confirmed unlock. Responses never include the login password. */
 export interface DesktopMacUnlockBridge {
   status: () => Promise<DesktopMacUnlockStatus>;
@@ -1371,6 +1427,16 @@ export interface DesktopBridge {
   vexoBand: {
     status: () => Promise<DesktopVexoBandStatus>;
     scan: () => Promise<DesktopVexoBandStatus>;
+  };
+  /**
+   * CLI sessions the Vexo connector published for this Mac (Claude / Codex / Grok).
+   * Reads the connector status file; does not start the connector.
+   * `resume` opens Terminal with the connector (or plain CLI) so you can continue that thread.
+   */
+  vexoSessions: {
+    list: () => Promise<DesktopVexoCliSessionsStatus>;
+    resume: (input: DesktopVexoCliSessionResumeInput) => Promise<DesktopVexoCliSessionResumeResult>;
+    rename: (input: DesktopVexoCliSessionRenameInput) => Promise<DesktopVexoCliSessionRenameResult>;
   };
   /** Login-keychain unlock for this Mac. The password is never returned. */
   macUnlock: DesktopMacUnlockBridge;

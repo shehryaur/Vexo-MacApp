@@ -646,6 +646,23 @@ export function withMessageSenderNote(
   return text === "" ? note : `${note}\n\n${text}`;
 }
 
+const RELAYED_REQUEST_MAX = 600;
+
+/**
+ * With agent collaboration on, the server puts the sender's own user request under the sender
+ * note, so the recipient sees what the user asked instead of an agent's paraphrase.
+ */
+export function withRelayedUserRequest(request: string, text: string): string {
+  const normalized = request.replace(/\s+/g, " ").trim();
+  if (normalized.length === 0 || LEADING_COMMAND.test(text)) return text;
+  const quoted =
+    normalized.length > RELAYED_REQUEST_MAX
+      ? `${normalized.slice(0, RELAYED_REQUEST_MAX)}…`
+      : normalized;
+  const note = `[T3 Code: the user's request in that thread was ${JSON.stringify(quoted)}.]`;
+  return text === "" ? note : `${note}\n\n${text}`;
+}
+
 export type OrchestrationV2GoalCommand =
   | { readonly type: "show" }
   | { readonly type: "clear" }

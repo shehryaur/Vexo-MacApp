@@ -86,8 +86,8 @@ export class DesktopEnvironment extends Context.Service<
 >()("@t3tools/desktop/app/DesktopEnvironment") {}
 
 const APP_BASE_NAME = "T3 Code";
-// Mac chrome only. Package names, web, and other desktop platforms stay T3 Code.
-const MAC_APP_BASE_NAME = "VexoMacApp";
+// Mac chrome shows Vexo; other desktops keep T3 Code.
+const MAC_APP_BASE_NAME = "Vexo";
 
 function resolveDesktopAppStageLabel(input: {
   readonly isDevelopment: boolean;

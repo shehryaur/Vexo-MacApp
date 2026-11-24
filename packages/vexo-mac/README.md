@@ -13,7 +13,8 @@ The same thread may acquire again; that refreshes the idle timer. `release(threa
 
 `listWindows()` returns on-screen windows, front to back: `windowId`, `title`, `app`, and `bounds` in screen points (origin top-left).
 `observeFront()` captures the front window with `/usr/sbin/screencapture -l<id>` and returns `{windowId, title, app, imagePath, bounds}`.
-`imagePath` is a temp JPEG. Image bytes are not logged. `captureFrame()` returns `{imagePath}` for the whole display.
+`imagePath` is a temp JPEG. Image bytes are not logged. `captureFrame()` returns `{imagePath}` for the whole display,
+with VexoMacApp / T3 Code windows blanked so Screen watch does not mirror this host.
 If unlock is in progress or the session is locked, `captureFrame()` returns `{redacted:true}` and does not run screencapture.
 
 ## Act

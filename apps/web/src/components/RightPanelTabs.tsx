@@ -54,6 +54,7 @@ import {
   TerminalSquare,
   Volume2Icon,
   VolumeOffIcon,
+  X,
 } from "lucide-react";
 import {
   type KeyboardEvent as ReactKeyboardEvent,
@@ -1095,6 +1096,22 @@ function RightPanelTab(
           </TooltipPopup>
         </Tooltip>
       )}
+      <button
+        type="button"
+        aria-label={gt("Close {title}", { title })}
+        className={cn(
+          "cursor-pointer flex size-3.5 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground [-webkit-app-region:no-drag]",
+          props.active
+            ? "opacity-70 hover:opacity-100"
+            : "opacity-0 group-hover/tab:opacity-70 hover:!opacity-100",
+        )}
+        onClick={(event) => {
+          event.stopPropagation();
+          onClose(surface);
+        }}
+      >
+        <X className="size-3" />
+      </button>
     </>
   );
   return (
@@ -1495,11 +1512,17 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
           scrollFade
           className={cn(
             "min-w-0 flex-1",
-            ownsDesktopTitleBar && tabScrollState.hasOverflow && "[-webkit-app-region:no-drag]",
+            ownsDesktopTitleBar && "[-webkit-app-region:no-drag]",
           )}
+          viewportClassName={ownsDesktopTitleBar ? "[-webkit-app-region:no-drag]" : undefined}
           data-right-panel-tab-list
         >
-          <div className="flex h-full w-max min-w-full items-center gap-1">
+          <div
+            className={cn(
+              "flex h-full w-max min-w-full items-center gap-1",
+              ownsDesktopTitleBar && "[-webkit-app-region:no-drag]",
+            )}
+          >
             <SortableTabList surfaces={props.surfaces} onMove={props.onMoveSurface}>
               {props.surfaces.map((surface) => {
                 const previewTabId = previewTabIdOf(surface, props.previewSessions);
@@ -1549,10 +1572,11 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
               <Menu open={addSurfaceMenuOpen} onOpenChange={setAddSurfaceMenuOpen}>
                 <MenuTrigger
                   ref={addSurfaceTriggerRef}
+                  className="shrink-0 [-webkit-app-region:no-drag]"
                   render={
                     <Button
                       aria-label={gt("Add panel surface")}
-                      className="shrink-0"
+                      className="shrink-0 [-webkit-app-region:no-drag]"
                       size="icon-xs"
                       variant="ghost-muted"
                     />

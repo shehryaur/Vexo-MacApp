@@ -436,6 +436,9 @@ export function AppSidebarLayout({
   const panelAnimationsSuppressed = usePanelNavigationSuppression(pathname);
   const routePanelAnimationsActive = panelAnimationsActive && !panelAnimationsSuppressed;
   const isMacosDesktop = isElectron && isMacPlatform(navigator.platform);
+  // Mac desktop keeps the Vexo sidebar in VexoShell (including while Settings is
+  // open), so the stock thread list never mounts and the canvas does not flash.
+  const showThreadSidebar = showSidebar && !isMacosDesktop;
   const [sidebarWidth, setSidebarWidth] = useState(readInitialThreadSidebarWidth);
   // A clamped drag may not change width, so viewport changes need a separate subscription.
   const viewportWidth = useSyncExternalStore(subscribeToViewportWidth, readViewportWidth);
@@ -473,7 +476,7 @@ export function AppSidebarLayout({
         storageKey="chat_thread_sidebar_open"
         style={sidebarProviderStyle}
       >
-        {showSidebar ? (
+        {showThreadSidebar ? (
           <>
             <SidebarBrandWidthProbe isElectron={isElectron} onWidthChange={setBrandWidth} />
             <Sidebar
@@ -501,7 +504,7 @@ export function AppSidebarLayout({
         ) : null}
         {children}
         <BackgroundThreadAnnouncer />
-        <SidebarControl showSidebar={showSidebar} />
+        <SidebarControl showSidebar={showThreadSidebar} />
         {isElectron ? <HistorySwipeNavigation /> : null}
       </SidebarProvider>
     </PanelAnimationSuppressionProvider>

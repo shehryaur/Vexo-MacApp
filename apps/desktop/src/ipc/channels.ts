@@ -171,3 +171,6 @@ export const VEXO_AWAKE_SET_CHANNEL = "desktop:vexo-awake-set";
 export const VEXO_AWAKE_REMOVE_SETUP_CHANNEL = "desktop:vexo-awake-remove-setup";
 export const VEXO_BAND_STATUS_CHANNEL = "desktop:vexo-band-status";
 export const VEXO_BAND_SCAN_CHANNEL = "desktop:vexo-band-scan";
+export const VEXO_SESSIONS_LIST_CHANNEL = "desktop:vexo-sessions-list";
+export const VEXO_SESSIONS_RESUME_CHANNEL = "desktop:vexo-sessions-resume";
+export const VEXO_SESSIONS_RENAME_CHANNEL = "desktop:vexo-sessions-rename";

@@ -1,4 +1,12 @@
-import type { DesktopVexoAwakeStatus, DesktopVexoBandStatus } from "@t3tools/contracts";
+import type {
+  DesktopVexoAwakeStatus,
+  DesktopVexoBandStatus,
+  DesktopVexoCliSessionRenameInput,
+  DesktopVexoCliSessionRenameResult,
+  DesktopVexoCliSessionResumeInput,
+  DesktopVexoCliSessionResumeResult,
+  DesktopVexoCliSessionsStatus,
+} from "@t3tools/contracts";
 import { msg } from "gt-react";
 
 import { m } from "~/i18n/messages";
@@ -64,4 +72,54 @@ export function scanBand(): Promise<DesktopVexoBandStatus> {
   const scan = bridge()?.vexoBand?.scan;
   if (!scan) return Promise.resolve(BAND_BROWSER);
   return scan().catch(() => BAND_FAILED);
+}
+
+const SESSIONS_BROWSER: DesktopVexoCliSessionsStatus = {
+  available: false,
+  sessions: [],
+  detail: m(msg("Open the desktop app to list Claude, Codex, and Grok sessions on this Mac.")),
+};
+
+const SESSIONS_FAILED: DesktopVexoCliSessionsStatus = {
+  available: false,
+  sessions: [],
+  detail: m(msg("Could not read sessions from the Vexo connector.")),
+};
+
+export function readCliSessions(): Promise<DesktopVexoCliSessionsStatus> {
+  const list = bridge()?.vexoSessions?.list;
+  if (!list) return Promise.resolve(SESSIONS_BROWSER);
+  return list().catch(() => SESSIONS_FAILED);
+}
+
+const RESUME_BROWSER: DesktopVexoCliSessionResumeResult = {
+  ok: false,
+  detail: m(msg("Open the desktop app to continue a CLI session in Terminal.")),
+};
+
+export function resumeCliSession(
+  input: DesktopVexoCliSessionResumeInput,
+): Promise<DesktopVexoCliSessionResumeResult> {
+  const resume = bridge()?.vexoSessions?.resume;
+  if (!resume) return Promise.resolve(RESUME_BROWSER);
+  return resume(input).catch(() => ({
+    ok: false,
+    detail: m(msg("Could not open Terminal for this session.")),
+  }));
+}
+
+export function renameCliSession(
+  input: DesktopVexoCliSessionRenameInput,
+): Promise<DesktopVexoCliSessionRenameResult> {
+  const rename = bridge()?.vexoSessions?.rename;
+  if (!rename) {
+    return Promise.resolve({
+      ok: false,
+      detail: m(msg("Open the desktop app to rename a CLI session.")),
+    });
+  }
+  return rename(input).catch(() => ({
+    ok: false,
+    detail: m(msg("The new name could not be saved.")),
+  }));
 }

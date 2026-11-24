@@ -23,8 +23,8 @@ NodeTest.afterEach(() => {
 
 NodeTest.test("frames are redacted during unlock and while the session is locked", async () => {
   let captures = 0;
-  setRunForTests(async (command) => {
-    if (command.endsWith("screencapture")) {
+  setRunForTests(async (command, args) => {
+    if (command.endsWith("screencapture") || args[1] === "blank-host-capture") {
       captures += 1;
       throw new Error("capture must not run");
     }
@@ -36,7 +36,7 @@ NodeTest.test("frames are redacted during unlock and while the session is locked
 
   setUnlockInProgressForTests(false);
   setRunForTests(async (command, args) => {
-    if (command.endsWith("screencapture")) {
+    if (command.endsWith("screencapture") || args[1] === "blank-host-capture") {
       captures += 1;
       throw new Error("capture must not run");
     }
@@ -57,6 +57,9 @@ NodeTest.test("an unlocked session returns a jpeg path and not the bytes", async
       if (!imagePath) throw new Error("missing path");
       await NodeFSP.writeFile(imagePath, Buffer.from([0xff, 0xd8, 0xff, 0xd9]));
       return { code: 0, stdout: "", stderr: "" };
+    }
+    if (args[1] === "blank-host-capture") {
+      return { code: 0, stdout: '{"ok":true}\n', stderr: "" };
     }
     throw new Error("unexpected command");
   });

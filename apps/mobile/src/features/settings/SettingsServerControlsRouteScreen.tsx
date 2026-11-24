@@ -407,6 +407,21 @@ function ServerSettingsDetail(props: { readonly page: SettingsPage }) {
                     onValueChange={(value) => write({ enableAgentBrowserAccess: value })}
                   />
                 </SettingsSection>
+                <SettingsSection title={gt("Agent collaboration")}>
+                  <SettingsSwitchRow
+                    icon="person.2"
+                    label={gt("Agent collaboration")}
+                    subtitle={managedSubtitle(
+                      "enableAgentCollaboration",
+                      gt(
+                        "Let Claude threads on this server answer each other's status requests through T3 Code. Other sessions can never approve destructive, external, purchase or secret actions. Applies when a thread's agent session next starts.",
+                      ),
+                    )}
+                    value={uniform("enableAgentCollaboration")}
+                    disabled={disabledFor("enableAgentCollaboration")}
+                    onValueChange={(value) => write({ enableAgentCollaboration: value })}
+                  />
+                </SettingsSection>
                 <AutoSettleSettingsRows write={write} pending={pendingWrites > 0} />
               </>
             ) : null}

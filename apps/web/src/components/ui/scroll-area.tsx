@@ -21,6 +21,7 @@ function getVirtualizedScrollFadeClassName({ top, bottom }: { top: boolean; bott
 
 function ScrollArea({
   className,
+  viewportClassName,
   children,
   scrollFade = false,
   scrollFadePadding = true,
@@ -31,6 +32,7 @@ function ScrollArea({
   viewportTabIndex,
   ...props
 }: ScrollAreaPrimitive.Root.Props & {
+  viewportClassName?: string | undefined;
   scrollFade?: boolean;
   scrollFadePadding?: boolean;
   scrollbarGutter?: boolean;
@@ -60,6 +62,7 @@ function ScrollArea({
           scrollbarGutter && "scrollbar-gutter-stable",
           hideScrollbars &&
             "[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+          viewportClassName,
         )}
         data-slot="scroll-area-viewport"
       >

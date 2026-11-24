@@ -639,6 +639,9 @@ export function useSettingsRestore(onRestored?: () => void) {
     ...(settings.enableAgentBrowserAccess !== DEFAULT_UNIFIED_SETTINGS.enableAgentBrowserAccess
       ? [gt("Agent browser access")]
       : []),
+    ...(settings.enableAgentCollaboration !== DEFAULT_UNIFIED_SETTINGS.enableAgentCollaboration
+      ? [gt("Agent collaboration")]
+      : []),
   ];
 
   const restoreDefaults = async () => {
@@ -768,6 +771,7 @@ export function useSettingsRestore(onRestored?: () => void) {
       browserAutoShowFloatingPreview: DEFAULT_UNIFIED_SETTINGS.browserAutoShowFloatingPreview,
       pullRequestLinksOpenInApp: DEFAULT_UNIFIED_SETTINGS.pullRequestLinksOpenInApp,
       enableAgentBrowserAccess: DEFAULT_UNIFIED_SETTINGS.enableAgentBrowserAccess,
+      enableAgentCollaboration: DEFAULT_UNIFIED_SETTINGS.enableAgentCollaboration,
     });
     onRestored?.();
   };

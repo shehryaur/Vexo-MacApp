@@ -1179,6 +1179,14 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: [msg("allow disable enable open drive preview tools sessions project override")],
   },
   {
+    id: "agent-collaboration",
+    title: msg("Agent collaboration"),
+    to: "/settings/browser",
+    searchTerms: [
+      msg("claude threads sessions peers message status coordinate share cross-session"),
+    ],
+  },
+  {
     id: "device-sources",
     title: msg("Device sources"),
     to: "/settings/devices",

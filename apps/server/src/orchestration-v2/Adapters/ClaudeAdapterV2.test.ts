@@ -87,7 +87,10 @@ import { attachmentRelativePath } from "../../attachmentStore.ts";
 import { WorkflowAgentTranscriptReadObserver } from "../workflowAgentTranscript.ts";
 import * as ServerConfig from "../../config.ts";
 import * as McpProviderSession from "@t3tools/provider-core/server/mcpSession";
-import { T3_CODE_DEVICE_TOOL_INSTRUCTIONS_WITH_TOOL_SEARCH } from "@t3tools/provider-core/server/orchestrationInstructions";
+import {
+  T3_CODE_AGENT_COLLABORATION_INSTRUCTIONS,
+  T3_CODE_DEVICE_TOOL_INSTRUCTIONS_WITH_TOOL_SEARCH,
+} from "@t3tools/provider-core/server/orchestrationInstructions";
 import * as McpProviderSessions from "@t3tools/provider-core/server/McpProviderSessions";
 import { PreviewControlsToolkit } from "../../mcp/toolkits/previewControls/tools.ts";
 import { HtmlToolkit } from "../../mcp/toolkits/html/tools.ts";
@@ -975,6 +978,46 @@ describe("ClaudeAdapterV2 device instructions", () => {
     ]);
     assert.deepEqual(await subagentContext({ mcp: true, deviceToolsAvailable: false }), []);
     assert.deepEqual(await subagentContext({ mcp: false, deviceToolsAvailable: true }), []);
+  });
+});
+
+describe("ClaudeAdapterV2 agent collaboration instructions", () => {
+  const append = (input: { readonly mcp: boolean; readonly agentCollaboration?: boolean }) =>
+    (
+      ClaudeAdapterV2.makeClaudeQueryOptions({
+        modelSelection: {
+          instanceId: ProviderInstanceId.make("claudeAgent"),
+          model: "claude-opus-5-5",
+        },
+        nativeThreadId: "native-thread-claude-collaboration",
+        resume: false,
+        cwd: "/workspace",
+        ...(input.mcp
+          ? { mcpServers: { "t3-code": { type: "http" as const, url: "http://127.0.0.1/mcp" } } }
+          : {}),
+        ...(input.agentCollaboration === undefined
+          ? {}
+          : { agentCollaboration: input.agentCollaboration }),
+        appendSystemPromptFileText: "User append sentinel\n",
+        environment: {},
+      }).systemPrompt as { readonly append?: string }
+    ).append ?? "";
+
+  it("adds the collaboration section before the user's own append when on with T3 tools", () => {
+    const text = append({ mcp: true, agentCollaboration: true });
+    assert.include(text, T3_CODE_AGENT_COLLABORATION_INSTRUCTIONS.trim());
+    assert.isTrue(text.endsWith("\n\nUser append sentinel"));
+    assert.isBelow(
+      text.indexOf("## Working with the user's other sessions"),
+      text.indexOf("User append sentinel"),
+    );
+  });
+
+  it("leaves the collaboration section out when off or without T3 tools", () => {
+    const heading = "## Working with the user's other sessions";
+    assert.notInclude(append({ mcp: true }), heading);
+    assert.notInclude(append({ mcp: true, agentCollaboration: false }), heading);
+    assert.notInclude(append({ mcp: false, agentCollaboration: true }), heading);
   });
 });
 

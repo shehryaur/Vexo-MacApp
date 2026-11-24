@@ -65,6 +65,7 @@ import {
   latestProviderTurnForAttempt,
   resolveProjectProviderInstanceEnabled,
   SECRET_REQUEST_UNSAVED_NOTE,
+  withRelayedUserRequest,
 } from "@t3tools/contracts";
 import { getProviderOptionCurrentValue, withLegacyUltracodeEffort } from "@t3tools/shared/model";
 import { backgroundWorkHoldsCompletion } from "@t3tools/shared/orchestrationV2PendingBackgroundWork";
@@ -1489,6 +1490,25 @@ const make = Effect.gen(function* () {
     parent === undefined || projectId === parent.thread.projectId
       ? Effect.void
       : assertLiveCaller(scope, parent);
+
+  /** With agent collaboration on, the user's own message that started the caller's active run. */
+  const relayedUserRequest = Effect.fn("OrchestratorMcpService.relayedUserRequest")(function* (
+    parent: Pick<OrchestrationV2ThreadProjection, "thread" | "runs">,
+  ) {
+    const enabled = yield* serverSettings.getSettings.pipe(
+      Effect.map((settings) => settings.enableAgentCollaboration),
+      Effect.orElseSucceed(() => false),
+    );
+    const run = ThreadManagementService.latestActiveRun(parent);
+    if (!enabled || run === undefined) return undefined;
+    const records = yield* threadManagement
+      .getThreadRecords(parent.thread.id, ["messages"], { messageIds: [run.userMessageId] })
+      .pipe(Effect.option);
+    const message = Option.getOrUndefined(records)?.messages.find(
+      (entry) => entry.id === run.userMessageId,
+    );
+    return message?.createdBy === "user" ? message.text : undefined;
+  });
 
   const assertLiveCaller = (
     scope: McpInvocationScope,
@@ -3648,6 +3668,10 @@ const make = Effect.gen(function* () {
       yield* assertTargetWithinLimits(limits, target.thread);
 
       const mode = input.mode ?? "auto";
+      const userRequest =
+        parent === undefined || target.thread.id === parent.thread.id
+          ? undefined
+          : yield* relayedUserRequest(parent);
       const key = yield* requestKey(input.clientRequestId);
       const messageId = stableOperationMessageId({
         scope,
@@ -3669,7 +3693,10 @@ const make = Effect.gen(function* () {
             ? { linkedSender: scope.client.senderThread }
             : {}),
           messageId,
-          text: input.message,
+          text:
+            userRequest === undefined
+              ? input.message
+              : withRelayedUserRequest(userRequest, input.message),
           attachments: [],
           mode,
           ...(input.freshContext ? { freshContext: true } : {}),

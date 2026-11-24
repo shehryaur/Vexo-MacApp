@@ -2266,7 +2266,14 @@ export default function ChatView(props: ChatViewProps) {
       frame = window.requestAnimationFrame(() => {
         frame = window.requestAnimationFrame(() => {
           frame = null;
-          if (document.querySelector("[data-mcp-app-fullscreen]") !== null) return;
+          if (
+            document.querySelector("[data-mcp-app-fullscreen]") !== null ||
+            document.querySelector(
+              '[data-slot="menu-popup"]:is([data-open],[data-ending-style]), [data-slot$="-popup"]:is([data-open],[data-ending-style])',
+            ) !== null
+          ) {
+            return;
+          }
           if (
             !isInSideChatPane(document.activeElement) &&
             shouldRefocusComposerOnWindowFocus(document.activeElement, document.getSelection())

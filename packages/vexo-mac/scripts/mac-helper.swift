@@ -1,7 +1,9 @@
+import AppKit
 import ApplicationServices
 import CoreGraphics
 import Darwin
 import Foundation
+import ImageIO
 import OpenDirectory
 
 // One-shot helper. Prints a single JSON object. Never prints stdin (clicks, text, or passwords).
@@ -242,6 +244,102 @@ func listWindows() -> Never {
     emit(Reply(ok: true, windows: windows))
 }
 
+/// Host chrome in the frame becomes a hall of mirrors when Screen is open. Blank those windows.
+func shouldBlankHostApp(_ name: String) -> Bool {
+    let lower = name.lowercased()
+    return (
+        lower.hasPrefix("vexo") ||
+        lower.hasPrefix("vexomacapp") ||
+        lower.hasPrefix("t3 code") ||
+        lower.hasPrefix("t3code")
+    )
+}
+
+func shouldBlankHostWindow(_ row: [String: Any]) -> Bool {
+    let app = row[kCGWindowOwnerName as String] as? String ?? ""
+    if shouldBlankHostApp(app) { return true }
+    guard let pidNumber = row[kCGWindowOwnerPID as String] as? NSNumber else { return false }
+    let pid = pid_t(pidNumber.int32Value)
+    guard let running = NSRunningApplication(processIdentifier: pid), let url = running.bundleURL else {
+        return false
+    }
+    let path = url.path.lowercased()
+    return path.contains("vexomacapp") || path.contains("/t3 code")
+}
+
+func writeJPEG(_ image: CGImage, path: String) -> Bool {
+    let url = URL(fileURLWithPath: path) as CFURL
+    guard let destination = CGImageDestinationCreateWithURL(url, "public.jpeg" as CFString, 1, nil) else {
+        return false
+    }
+    let properties = [kCGImageDestinationLossyCompressionQuality: 0.72] as CFDictionary
+    CGImageDestinationAddImage(destination, image, properties)
+    return CGImageDestinationFinalize(destination)
+}
+
+func loadJPEG(_ path: String) -> CGImage? {
+    let url = URL(fileURLWithPath: path) as CFURL
+    guard let source = CGImageSourceCreateWithURL(url, nil) else { return nil }
+    return CGImageSourceCreateImageAtIndex(source, 0, nil)
+}
+
+/// Blank host chrome in an existing display JPEG (from `/usr/sbin/screencapture`).
+func blankHostWindowsInCapture(path: String) -> Never {
+    guard let base = loadJPEG(path) else { fail("capture_failed") }
+    let width = base.width
+    let height = base.height
+    guard width > 0, height > 0 else { fail("capture_failed") }
+    let displayBounds = CGDisplayBounds(CGMainDisplayID())
+    guard
+        let context = CGContext(
+            data: nil,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: 0,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        )
+    else { fail("capture_failed") }
+    context.draw(base, in: CGRect(x: 0, y: 0, width: width, height: height))
+
+    let scaleX = CGFloat(width) / displayBounds.width
+    let scaleY = CGFloat(height) / displayBounds.height
+    let options: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
+    if let info = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] {
+        context.setFillColor(gray: 0, alpha: 1)
+        for row in info {
+            if !shouldBlankHostWindow(row) { continue }
+            let layer = (row[kCGWindowLayer as String] as? NSNumber)?.intValue ?? 0
+            if layer != 0 { continue }
+            guard let rawBounds = row[kCGWindowBounds as String] as? [String: Any] else { continue }
+            func number(_ key: String) -> CGFloat? {
+                (rawBounds[key] as? NSNumber).map { CGFloat(truncating: $0) }
+            }
+            guard
+                let x = number("X"),
+                let y = number("Y"),
+                let windowWidth = number("Width"),
+                let windowHeight = number("Height"),
+                windowWidth > 1,
+                windowHeight > 1
+            else { continue }
+            // CGWindowBounds origin is top-left of the main display; CGContext is bottom-left.
+            let imgX = (x - displayBounds.origin.x) * scaleX
+            let imgHeight = windowHeight * scaleY
+            let imgYFromTop = (y - displayBounds.origin.y) * scaleY
+            let imgY = CGFloat(height) - imgYFromTop - imgHeight
+            context.fill(
+                CGRect(x: imgX, y: imgY, width: windowWidth * scaleX, height: imgHeight)
+            )
+        }
+    }
+
+    guard let image = context.makeImage() else { fail("capture_failed") }
+    if !writeJPEG(image, path: path) { fail("capture_failed") }
+    succeed()
+}
+
 func reportLocked() -> Never {
     switch sessionLock() {
     case .locked:
@@ -342,6 +440,11 @@ let input = readInput()
 switch operation {
 case "windows":
     listWindows()
+case "blank-host-capture":
+    guard let path = CommandLine.arguments.dropFirst(2).first, !path.isEmpty else {
+        fail("bad_path")
+    }
+    blankHostWindowsInCapture(path: path)
 case "locked":
     reportLocked()
 case "verify":

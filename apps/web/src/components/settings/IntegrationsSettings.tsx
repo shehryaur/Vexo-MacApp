@@ -1141,6 +1141,44 @@ function AgentBrowserAccessSetting() {
   );
 }
 
+function AgentCollaborationSetting() {
+  const searchableSetting = useSearchableSetting();
+  const gt = useGT();
+  const settings = useScopedSettings();
+  const updateSettings = useUpdateScopedSettings();
+
+  return (
+    <SettingsRow
+      serverScoped
+      settingKeys={["enableAgentCollaboration"]}
+      {...searchableSetting("agent-collaboration")}
+      description={gt(
+        "Let Claude threads on this server answer each other's status requests through T3 Code. Other sessions can never approve destructive, external, purchase or secret actions. Applies when a thread's agent session next starts.",
+      )}
+      resetAction={
+        settings.enableAgentCollaboration !== DEFAULT_SERVER_SETTINGS.enableAgentCollaboration ? (
+          <SettingResetButton
+            ariaLabel={gt("Reset agent collaboration to default")}
+            onClick={() =>
+              updateSettings({
+                enableAgentCollaboration: DEFAULT_SERVER_SETTINGS.enableAgentCollaboration,
+              })
+            }
+          />
+        ) : null
+      }
+      control={
+        <ScopedSwitch
+          settingKeys={["enableAgentCollaboration"]}
+          aria-label={gt("Agent collaboration")}
+          checked={settings.enableAgentCollaboration}
+          onCheckedChange={(enabled) => updateSettings({ enableAgentCollaboration: enabled })}
+        />
+      }
+    />
+  );
+}
+
 function BrowserAutoShowFloatingPreviewSetting({ disabled }: { readonly disabled: boolean }) {
   const searchableSetting = useSearchableSetting();
   const gt = useGT();
@@ -1695,6 +1733,7 @@ export function BrowserSettingsPanel() {
     <SettingsPageContainer>
       <SettingsSection id="browser-agent-access" title={gt("Agent access")}>
         <AgentBrowserAccessSetting />
+        <AgentCollaborationSetting />
       </SettingsSection>
       <SettingsSection id="browser" title={gt("Browsing")}>
         <SettingsUnavailableGroup message={desktopOnlyMessage}>

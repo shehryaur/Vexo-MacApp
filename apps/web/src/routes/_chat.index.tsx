@@ -1,34 +1,20 @@
 import { workspaceAreaProps } from "../lib/workspaceFocus";
 import { RefreshIcon } from "~/components/ui/refresh-icon";
-import { scopeProjectRef } from "@t3tools/client-runtime/environment";
 import { createFileRoute } from "@tanstack/react-router";
 import { T, useGT } from "gt-react";
-import { useRef, useState } from "react";
 
 import { isElectron } from "../env";
 import { NoProjectsHero } from "../components/NoProjectsHero";
 import { VexoHome } from "../components/vexo/VexoHome";
-import {
-  attachCapturedWindowToDraft,
-  CAPTURE_THREAD_PROMPT,
-  capturedWindowDataUrl,
-} from "../components/vexo/capture";
-import { useComposerDraftStore } from "../composerDraftStore";
-import type { DesktopFrontWindowCapture } from "@t3tools/contracts";
-import { sortScopedProjectsForSidebar } from "../components/Sidebar.logic";
+import { useVexoDraftStart } from "../components/vexo/useVexoDraftStart";
 import { Button } from "../components/ui/button";
 import { HostedEmptyState } from "../components/HostedEmptyState";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "../components/ui/empty";
 import { SidebarInset } from "../components/ui/sidebar";
 import { WorkspacePageHeader } from "../components/WorkspacePageHeader";
-import { useNewThreadHandler } from "../hooks/useHandleNewThread";
-import {
-  readProject,
-  useAllEnvironmentShellsBootstrapped,
-  useProjects,
-  useVisibleThreadShells,
-} from "../state/entities";
+import { useAllEnvironmentShellsBootstrapped } from "../state/entities";
 import { useEnvironments } from "../state/environments";
+import { isMacPlatform } from "../lib/utils";
 
 function ChatIndexRouteView() {
   const { authGateState } = Route.useRouteContext();
@@ -43,87 +29,24 @@ function ChatIndexRouteView() {
 }
 
 function IndexDraftLanding() {
-  const projects = useProjects();
-  const threads = useVisibleThreadShells();
   const bootstrapped = useAllEnvironmentShellsBootstrapped();
-  const handleNewThread = useNewThreadHandler();
-  const openingRef = useRef(false);
-  const [startState, setStartState] = useState({ failed: false, opening: false });
-
-  const mostRecentProject =
-    sortScopedProjectsForSidebar(
-      projects.filter((project) => project.archivedAt == null),
-      threads,
-      "updated_at",
-    )[0] ?? null;
-
-  const openDraft = (prompt?: string) => {
-    if (openingRef.current || mostRecentProject === null) return;
-    const projectRef = scopeProjectRef(mostRecentProject.environmentId, mostRecentProject.id);
-    if (readProject(projectRef) === null) {
-      setStartState({ failed: true, opening: false });
-      return;
-    }
-    openingRef.current = true;
-    setStartState({ failed: false, opening: true });
-    void handleNewThread(projectRef, {
-      replace: true,
-      ...(prompt === undefined ? {} : { prompt }),
-    })
-      .then((opened) => {
-        if (opened === null) {
-          openingRef.current = false;
-          setStartState({ failed: true, opening: false });
-        }
-      })
-      .catch(() => {
-        openingRef.current = false;
-        setStartState({ failed: true, opening: false });
-      });
-  };
-
-  const handleCaptureAttached = (capture: DesktopFrontWindowCapture) => {
-    if (!capturedWindowDataUrl(capture)) {
-      openDraft(CAPTURE_THREAD_PROMPT);
-      return;
-    }
-    if (openingRef.current || mostRecentProject === null) return;
-    const projectRef = scopeProjectRef(mostRecentProject.environmentId, mostRecentProject.id);
-    if (readProject(projectRef) === null) {
-      setStartState({ failed: true, opening: false });
-      return;
-    }
-    openingRef.current = true;
-    setStartState({ failed: false, opening: true });
-    void handleNewThread(projectRef, { replace: true })
-      .then(async (opened) => {
-        if (opened === null) {
-          openingRef.current = false;
-          setStartState({ failed: true, opening: false });
-          return;
-        }
-        let attached = false;
-        try {
-          attached = await attachCapturedWindowToDraft(opened.draftId, capture);
-        } catch {
-          attached = false;
-        }
-        if (!attached) {
-          useComposerDraftStore.getState().setPrompt(opened.draftId, CAPTURE_THREAD_PROMPT);
-        }
-      })
-      .catch(() => {
-        openingRef.current = false;
-        setStartState({ failed: true, opening: false });
-      });
-  };
+  const {
+    mostRecentProject,
+    speechTarget,
+    startState,
+    asking,
+    openDraft,
+    askVexo,
+    handleCaptureAttached,
+    clearFailure,
+  } = useVexoDraftStart();
+  const framed = isElectron && isMacPlatform(navigator.platform);
 
   if (startState.failed) {
     return (
       <DraftStartError
         onRetry={() => {
-          openingRef.current = false;
-          setStartState({ failed: false, opening: false });
+          clearFailure();
         }}
       />
     );
@@ -132,17 +55,15 @@ function IndexDraftLanding() {
   if (mostRecentProject !== null) {
     return (
       <VexoHome
-        busy={startState.opening}
-        speechTarget={{
-          environmentId: mostRecentProject.environmentId,
-          projectId: mostRecentProject.id,
-          projectName: mostRecentProject.title,
-        }}
+        framed={framed}
+        busy={startState.opening || asking}
+        {...(speechTarget === undefined ? {} : { speechTarget })}
         onNewChat={() => {
           openDraft();
         }}
         onSubmit={(prompt) => {
-          openDraft(prompt);
+          // Stay on Vexo home — Haiku runs the job; Recents shows Working.
+          void askVexo(prompt);
         }}
         onCaptureAttached={handleCaptureAttached}
       />

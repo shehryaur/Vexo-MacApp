@@ -581,6 +581,11 @@ contextBridge.exposeInMainWorld("desktopBridge", {
     status: () => ipcRenderer.invoke(IpcChannels.VEXO_BAND_STATUS_CHANNEL),
     scan: () => ipcRenderer.invoke(IpcChannels.VEXO_BAND_SCAN_CHANNEL),
   },
+  vexoSessions: {
+    list: () => ipcRenderer.invoke(IpcChannels.VEXO_SESSIONS_LIST_CHANNEL),
+    resume: (input) => ipcRenderer.invoke(IpcChannels.VEXO_SESSIONS_RESUME_CHANNEL, input),
+    rename: (input) => ipcRenderer.invoke(IpcChannels.VEXO_SESSIONS_RENAME_CHANNEL, input),
+  },
   macUnlock: {
     status: () => ipcRenderer.invoke(IpcChannels.MAC_UNLOCK_STATUS_CHANNEL),
     savePassword: (password) => ipcRenderer.invoke(IpcChannels.MAC_UNLOCK_SAVE_CHANNEL, password),

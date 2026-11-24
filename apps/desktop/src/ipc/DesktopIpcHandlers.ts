@@ -109,6 +109,9 @@ import {
   vexoAwakeStatus,
   vexoBandScan,
   vexoBandStatus,
+  vexoSessionsList,
+  vexoSessionsRename,
+  vexoSessionsResume,
 } from "./methods/vexoMac.ts";
 
 export const installDesktopIpcHandlers = Effect.fn("desktop.ipc.installHandlers")(function* () {
@@ -214,6 +217,9 @@ export const installDesktopIpcHandlers = Effect.fn("desktop.ipc.installHandlers"
   yield* ipc.handle(vexoAwakeRemoveSetup);
   yield* ipc.handle(vexoBandStatus);
   yield* ipc.handle(vexoBandScan);
+  yield* ipc.handle(vexoSessionsList);
+  yield* ipc.handle(vexoSessionsResume);
+  yield* ipc.handle(vexoSessionsRename);
   for (const previewMethod of PreviewIpc.methods) {
     // Explicit types preserve the error/service union of these heterogeneous preview methods.
     yield* ipc.handle<

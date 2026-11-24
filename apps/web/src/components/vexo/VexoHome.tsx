@@ -5,29 +5,18 @@
  * Lid-closed toggles a user-space caffeinate hold. The band control reports a local
  * scan and does not pair. Timeline stays on its own panel.
  */
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { msg, T, useGT, useMessages, Var } from "gt-react";
 import {
   AppWindowIcon,
   ArrowUpIcon,
-  AtSignIcon,
   CalendarDaysIcon,
-  ChevronDownIcon,
   CircleIcon,
-  ClockIcon,
-  FolderIcon,
   InfoIcon,
   LaptopIcon,
-  MessageSquareIcon,
   MicIcon,
-  MonitorIcon,
-  PaperclipIcon,
-  RotateCwIcon,
-  SearchIcon,
   ShieldIcon,
-  SquareIcon,
   SquarePenIcon,
-  SquareTerminalIcon,
   XIcon,
 } from "lucide-react";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
@@ -37,10 +26,11 @@ import type {
   DesktopVexoAwakeStatus,
   DesktopVexoBandStatus,
 } from "@t3tools/contracts";
-import { APP_BASE_NAME } from "~/branding";
 import type { MessageResolver } from "~/i18n/messages";
 import { cn } from "~/lib/utils";
 import { buildThreadRouteParams } from "~/threadRoutes";
+import { ClaudeAI, CursorIcon, OpenAI } from "../Icons";
+import { Tooltip, TooltipPopup, TooltipProvider, TooltipTrigger } from "~/components/ui/tooltip";
 import { CAPTURE_THREAD_PROMPT, capturedWindowDataUrl, getFrontWindowCapture } from "./capture";
 import {
   useVexoHomeModel,
@@ -51,9 +41,9 @@ import {
   type VexoLinkState,
   type VexoSessionRow,
 } from "./useVexoHomeModel";
-import { VexoHeyDictation, type VexoSpeechTarget } from "./VexoHeyDictation";
+import type { VexoSpeechTarget } from "./VexoHeyDictation";
 import { VexoMark } from "./VexoMark";
-import { VexoScreenWatch } from "./VexoScreenWatch";
+import { VexoRecents } from "./VexoRecents";
 import { VexoTimelinePanel } from "./VexoTimelinePanel";
 import {
   readAwakeStatus,
@@ -67,20 +57,7 @@ const DEFAULT_DISPLAY_NAME = "Shehryar";
 const FOCUS_RING =
   "cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:cursor-default";
 
-const RECENTS = [
-  { id: "hey-vexo", title: msg("Hey Vexo") },
-  { id: "clarify", title: msg("I need to clarify: I'm Claude...") },
-  { id: "internet", title: msg("Internet Connection Setup") },
-  { id: "casual", title: msg("Casual Chat") },
-  { id: "inquiry", title: msg("Claude Model Inquiry") },
-  { id: "information", title: msg("Claude Model Information") },
-  { id: "session", title: msg("Chat Session") },
-  { id: "sonnet", title: msg("Claude 3.5 Sonnet") },
-] as const;
-
 type AppConnection = "connected" | "not-connected";
-
-type DeferredFeature = "hey-vexo";
 
 const AI_APPS = [
   {
@@ -97,8 +74,8 @@ const AI_APPS = [
   },
   {
     id: "grokbot",
-    name: msg("Grokbot"),
-    disconnectedDetail: msg("No connected sessions. Start Grokbot from a project in Vexo."),
+    name: msg("Cursor / Grok"),
+    disconnectedDetail: msg("No connected sessions. Start Cursor or Grok from a project in Vexo."),
   },
 ] as const satisfies readonly {
   readonly id: VexoAppId;
@@ -154,8 +131,13 @@ export interface VexoHomeProps {
   readonly onSubmit?: (prompt: string) => void;
   readonly onNewChat?: () => void;
   readonly onCaptureAttached?: (capture: DesktopFrontWindowCapture) => void;
-  /** Project the dictated Hey Vexo message is sent to. */
+  /** Kept for callers; mic opens voice settings — wake word is not a click modal. */
   readonly speechTarget?: VexoSpeechTarget;
+  /**
+   * When true, only the home dashboard renders — VexoShell already owns the
+   * sidebar and outer chrome so New chat stays inside the same frame.
+   */
+  readonly framed?: boolean;
 }
 
 export function VexoHome({
@@ -165,14 +147,12 @@ export function VexoHome({
   onSubmit,
   onNewChat,
   onCaptureAttached,
-  speechTarget,
+  framed = false,
 }: VexoHomeProps) {
+  const navigate = useNavigate();
   const model = useVexoHomeModel();
-  const [showSplash, setShowSplash] = useState(true);
-  const [screenOpen, setScreenOpen] = useState(false);
+  const [showSplash, setShowSplash] = useState(!framed);
   const [timelineOpen, setTimelineOpen] = useState(false);
-  const [heyVexoOpen, setHeyVexoOpen] = useState(false);
-  const [deferred, setDeferred] = useState<DeferredFeature | null>(null);
   const [awake, setAwake] = useState<DesktopVexoAwakeStatus | null>(null);
   const [awakePending, setAwakePending] = useState(false);
   const [band, setBand] = useState<DesktopVexoBandStatus | null>(null);
@@ -180,10 +160,6 @@ export function VexoHome({
   const [bandScanning, setBandScanning] = useState(false);
   const [dayPart] = useState(() => dayPartForHour(new Date().getHours()));
   const hostname = hostnameProp ?? model.hostname;
-  const showDeferred = (feature: DeferredFeature) => {
-    setBandOpen(false);
-    setDeferred((current) => (current === feature ? null : feature));
-  };
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- keeps the desktop awake and band status in step with this mounted home
   useEffect(() => {
     let cancelled = false;
@@ -214,7 +190,6 @@ export function VexoHome({
     });
   };
   const toggleBand = () => {
-    setDeferred(null);
     setBandOpen((open) => !open);
   };
   const runBandScan = () => {
@@ -225,99 +200,83 @@ export function VexoHome({
       setBandScanning(false);
     });
   };
-  const openHeyVexo = () => {
+  const openVoiceSettings = () => {
     setBandOpen(false);
-    if (speechTarget === undefined) {
-      showDeferred("hey-vexo");
-      return;
-    }
-    setDeferred(null);
-    setHeyVexoOpen(true);
+    // Hey Vexo is wake-word / voice input — not a click-to-record modal.
+    void navigate({ to: "/settings/voice", replace: false });
   };
 
+  const panelInset = framed ? "left-0" : "left-72";
+  const dashboard = (
+    <>
+      {timelineOpen && !framed ? (
+        <VexoTimelinePanel
+          onClose={() => {
+            setTimelineOpen(false);
+          }}
+        />
+      ) : (
+        <VexoMain
+          dayPart={dayPart}
+          displayName={displayName}
+          hostname={hostname}
+          link={model.link}
+          apps={model.apps}
+          extraApps={model.extraApps}
+          approvals={model.approvals}
+          sessions={model.sessions}
+          busy={busy}
+          onSubmit={onSubmit}
+          onCaptureAttached={onCaptureAttached}
+          awake={awake}
+          awakePending={awakePending}
+          band={band}
+          bandOpen={bandOpen}
+          onToggleAwake={toggleAwake}
+          onRemoveAwakeSetup={removeAwakePermission}
+          onToggleBand={toggleBand}
+        />
+      )}
+      {bandOpen ? (
+        <BandPanel
+          band={band}
+          scanning={bandScanning}
+          insetClassName={panelInset}
+          onScan={runBandScan}
+          onClose={() => {
+            setBandOpen(false);
+          }}
+        />
+      ) : null}
+    </>
+  );
+
+  if (framed) {
+    return (
+      <div data-vexo-home="" className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+        {dashboard}
+      </div>
+    );
+  }
+
   return (
-    <div data-vexo-home="" className="fixed inset-0 z-40 flex bg-[#1b1d22] text-[#eceff3]">
+    <div data-vexo-home="" className="fixed inset-0 z-40 flex bg-[#141518] text-[#eceff3]">
       <div className="drag-region absolute inset-x-0 top-0 z-20 h-[var(--workspace-topbar-height)]" />
       <div inert={showSplash} className="relative flex min-h-0 min-w-0 flex-1">
         <VexoSidebar
           displayName={displayName}
           busy={busy}
-          screenOpen={screenOpen}
           timelineOpen={timelineOpen}
           onNewChat={onNewChat}
-          heyVexoOpen={heyVexoOpen}
-          onHeyVexo={openHeyVexo}
-          onToggleScreen={() => {
-            setScreenOpen((open) => !open);
-            setTimelineOpen(false);
-          }}
+          onVoiceSettings={openVoiceSettings}
           onToggleTimeline={() => {
             setTimelineOpen((open) => !open);
-            setScreenOpen(false);
+          }}
+          onSettings={() => {
+            void navigate({ to: "/settings/general", replace: false });
           }}
         />
-        {screenOpen ? (
-          <VexoScreenWatch
-            onClose={() => {
-              setScreenOpen(false);
-            }}
-          />
-        ) : timelineOpen ? (
-          <VexoTimelinePanel
-            onClose={() => {
-              setTimelineOpen(false);
-            }}
-          />
-        ) : (
-          <VexoMain
-            dayPart={dayPart}
-            displayName={displayName}
-            hostname={hostname}
-            link={model.link}
-            apps={model.apps}
-            extraApps={model.extraApps}
-            approvals={model.approvals}
-            sessions={model.sessions}
-            busy={busy}
-            onSubmit={onSubmit}
-            onCaptureAttached={onCaptureAttached}
-            awake={awake}
-            awakePending={awakePending}
-            band={band}
-            bandOpen={bandOpen}
-            onToggleAwake={toggleAwake}
-            onRemoveAwakeSetup={removeAwakePermission}
-            onToggleBand={toggleBand}
-          />
-        )}
-        {heyVexoOpen && speechTarget !== undefined ? (
-          <VexoHeyDictation
-            target={speechTarget}
-            busy={busy}
-            onSubmit={onSubmit}
-            onClose={() => {
-              setHeyVexoOpen(false);
-            }}
-          />
-        ) : null}
-        {deferred !== null ? (
-          <DeferredPanel
-            feature={deferred}
-            onClose={() => {
-              setDeferred(null);
-            }}
-          />
-        ) : null}
-        {bandOpen ? (
-          <BandPanel
-            band={band}
-            scanning={bandScanning}
-            onScan={runBandScan}
-            onClose={() => {
-              setBandOpen(false);
-            }}
-          />
-        ) : null}
+        {dashboard}
       </div>
       {showSplash ? (
         <VexoSplash
@@ -330,16 +289,9 @@ export function VexoHome({
   );
 }
 
-function splashProductName(
-  gt: (message: string, variables?: { readonly $context?: string }) => string,
-): string {
-  if (APP_BASE_NAME !== "T3 Code") return APP_BASE_NAME;
-  return gt("Vexo", { $context: "product name" });
-}
-
 function VexoSplash({ onDone }: { readonly onDone: () => void }) {
   const gt = useGT();
-  const splashName = splashProductName(gt);
+  const splashName = gt("Vexo", { $context: "product name" });
   return (
     <>
       <style>
@@ -393,248 +345,132 @@ function VexoSplash({ onDone }: { readonly onDone: () => void }) {
 function VexoSidebar({
   displayName,
   busy,
-  screenOpen,
   timelineOpen,
   onNewChat,
-  heyVexoOpen,
-  onHeyVexo,
-  onToggleScreen,
+  onVoiceSettings,
   onToggleTimeline,
+  onSettings,
 }: {
   readonly displayName: string;
   readonly busy: boolean;
-  readonly screenOpen: boolean;
   readonly timelineOpen: boolean;
   readonly onNewChat: (() => void) | undefined;
-  readonly heyVexoOpen: boolean;
-  readonly onHeyVexo: () => void;
-  readonly onToggleScreen: () => void;
+  readonly onVoiceSettings: () => void;
   readonly onToggleTimeline: () => void;
+  readonly onSettings: () => void;
 }) {
   const gt = useGT();
-  const m = useMessages();
-  const [query, setQuery] = useState("");
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>("hey-vexo");
-  const normalizedQuery = query.trim().toLowerCase();
-  const recents = RECENTS.filter((recent) =>
-    normalizedQuery.length === 0 ? true : m(recent.title).toLowerCase().includes(normalizedQuery),
-  );
   const initials = monogram(displayName);
+  const railBtn =
+    "grid size-11 place-items-center rounded-xl text-white/60 hover:bg-white/8 hover:text-white/90";
+  const railActive = "bg-white/14 text-white hover:bg-white/14 hover:text-white";
 
   return (
-    <aside className="flex w-60 shrink-0 border-r border-white/8 bg-[#141518]">
-      <div className="flex w-12 shrink-0 flex-col items-center border-r border-white/6 pt-[var(--workspace-topbar-height)] pb-3">
-        <div className="flex h-11 items-center justify-center">
-          <span className="size-5">
-            <VexoMark />
+    <aside className="flex w-72 shrink-0 border-r border-white/8 bg-[#141518]">
+      <div className="flex w-16 shrink-0 flex-col items-center gap-1 border-r border-white/6 pt-[var(--workspace-topbar-height)] pb-4">
+        <div className="flex h-12 items-center justify-center text-white">
+          <span className="size-7">
+            <VexoMark label={gt("Vexo", { $context: "product name" })} />
           </span>
         </div>
-        <button
-          type="button"
-          aria-pressed={screenOpen}
-          aria-label={gt("Screen", { $context: "opens the view-only Mac screen" })}
-          className={cn(
-            "mt-3 grid size-8 place-items-center rounded-lg",
-            screenOpen
-              ? "bg-white/12 text-white"
-              : "text-white/55 hover:bg-white/6 hover:text-white/85",
-            FOCUS_RING,
-          )}
-          onClick={onToggleScreen}
-        >
-          <MonitorIcon className="size-4" strokeWidth={1.75} />
-        </button>
-        <button
-          type="button"
-          aria-pressed={timelineOpen}
-          aria-label={gt("Timeline", { $context: "opens the daily timeline view" })}
-          className={cn(
-            "mt-2 grid size-8 place-items-center rounded-lg",
-            timelineOpen
-              ? "bg-white/12 text-white"
-              : "text-white/55 hover:bg-white/6 hover:text-white/85",
-            FOCUS_RING,
-          )}
-          onClick={onToggleTimeline}
-        >
-          <CalendarDaysIcon className="size-4" strokeWidth={1.75} />
-        </button>
-        <button
-          type="button"
-          aria-pressed={heyVexoOpen}
-          aria-label={gt("Hey Vexo", { $context: "starts dictation on this Mac" })}
-          className={cn(
-            "mt-2 grid size-8 place-items-center rounded-lg",
-            heyVexoOpen
-              ? "bg-white/12 text-white"
-              : "text-white/55 hover:bg-white/6 hover:text-white/85",
-            FOCUS_RING,
-          )}
-          onClick={onHeyVexo}
-        >
-          <MicIcon className="size-4" strokeWidth={1.75} />
-        </button>
-        <div className="mt-3 flex flex-col items-center gap-4 text-white/35" aria-hidden>
-          <MessageSquareIcon className="size-4" strokeWidth={1.75} />
-          <FolderIcon className="size-4" strokeWidth={1.75} />
-          <SquareTerminalIcon className="size-4" strokeWidth={1.75} />
-        </div>
-        <span className="mt-auto grid size-7 place-items-center rounded-full bg-white/10 text-[10px] font-medium tracking-wide text-white/80">
-          {initials}
-        </span>
+        <TooltipProvider delay={1000} closeDelay={150} timeout={400}>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <button
+                  type="button"
+                  aria-pressed={timelineOpen}
+                  aria-label={gt("Timeline", { $context: "opens the daily timeline view" })}
+                  className={cn(railBtn, timelineOpen && railActive, FOCUS_RING)}
+                  onClick={onToggleTimeline}
+                />
+              }
+            >
+              <CalendarDaysIcon className="size-5" strokeWidth={1.75} />
+            </TooltipTrigger>
+            <TooltipPopup side="right">
+              <T>Timeline</T>
+            </TooltipPopup>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <button
+                  type="button"
+                  aria-label={gt("Voice", { $context: "opens Hey Vexo and wake-word settings" })}
+                  className={cn(railBtn, FOCUS_RING)}
+                  onClick={onVoiceSettings}
+                />
+              }
+            >
+              <MicIcon className="size-5" strokeWidth={1.75} />
+            </TooltipTrigger>
+            <TooltipPopup side="right">
+              <T>Voice</T>
+            </TooltipPopup>
+          </Tooltip>
+          <div className="mt-auto">
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <button
+                    type="button"
+                    className={cn(
+                      "grid size-10 place-items-center rounded-full bg-white/12 text-[12px] font-semibold tracking-wide text-white/90 hover:bg-white/18",
+                      FOCUS_RING,
+                    )}
+                    aria-label={gt("Settings", { $context: "opens account and Mac settings" })}
+                    onClick={onSettings}
+                  />
+                }
+              >
+                {initials}
+              </TooltipTrigger>
+              <TooltipPopup side="right">
+                <T>Settings</T>
+              </TooltipPopup>
+            </Tooltip>
+          </div>
+        </TooltipProvider>
       </div>
       <div className="flex min-w-0 flex-1 flex-col pt-[var(--workspace-topbar-height)]">
-        <div className="flex h-11 items-center gap-2 px-3">
-          <span className="min-w-0 truncate text-[15px] font-semibold tracking-tight">
-            <T>VexoMacApp</T>
+        <div className="flex h-12 items-center px-3.5">
+          <span className="min-w-0 truncate text-[17px] font-semibold tracking-tight">
+            <T>Vexo</T>
           </span>
-          {searchOpen ? (
-            <input
-              autoFocus
-              value={query}
-              onChange={(event) => {
-                setQuery(event.target.value);
-              }}
-              onKeyDown={(event) => {
-                if (event.key !== "Escape") return;
-                setSearchOpen(false);
-                setQuery("");
-              }}
-              placeholder={gt("Search", { $context: "search field placeholder" })}
-              aria-label={gt("Search recents", { $context: "filters the recent chat list" })}
-              className={cn(
-                "ml-auto h-7 w-24 rounded-md border border-white/10 bg-white/8 px-2 text-[12px] text-white outline-none placeholder:text-white/35",
-                FOCUS_RING,
-              )}
-            />
-          ) : (
-            <button
-              type="button"
-              className={cn(
-                "ml-auto grid size-7 place-items-center rounded-md text-white/55 hover:bg-white/6 hover:text-white/80",
-                FOCUS_RING,
-              )}
-              aria-label={gt("Search recents", { $context: "filters the recent chat list" })}
-              onClick={() => {
-                setSearchOpen(true);
-              }}
-            >
-              <SearchIcon className="size-4" strokeWidth={1.75} />
-            </button>
-          )}
         </div>
         <button
           type="button"
           disabled={busy || onNewChat === undefined}
           className={cn(
-            "mx-2 flex h-9 items-center gap-2 rounded-lg px-2 text-left text-[13px] text-white/85 hover:bg-white/6 disabled:opacity-50",
+            "mx-2.5 flex h-11 items-center gap-2.5 rounded-xl px-2.5 text-left text-[14px] text-white/90 hover:bg-white/6 disabled:opacity-50",
             FOCUS_RING,
           )}
           onClick={() => {
             onNewChat?.();
           }}
         >
-          <SquarePenIcon className="size-4 text-white/55" strokeWidth={1.75} />
+          <SquarePenIcon className="size-5 text-white/55" strokeWidth={1.75} />
           <T>New chat</T>
-        </button>
-        <button
-          type="button"
-          aria-pressed={screenOpen}
-          className={cn(
-            "mx-2 flex h-9 items-center gap-2 rounded-lg px-2 text-left text-[13px] hover:bg-white/6",
-            screenOpen ? "bg-white/8 text-white" : "text-white/85",
-            FOCUS_RING,
-          )}
-          onClick={onToggleScreen}
-        >
-          <MonitorIcon className="size-4 text-white/55" strokeWidth={1.75} />
-          <T>Screen</T>
         </button>
         <button
           type="button"
           aria-pressed={timelineOpen}
           className={cn(
-            "mx-2 flex h-9 items-center gap-2 rounded-lg px-2 text-left text-[13px] hover:bg-white/6",
-            timelineOpen ? "bg-white/8 text-white" : "text-white/85",
+            "mx-2.5 flex h-11 items-center gap-2.5 rounded-xl px-2.5 text-left text-[14px] hover:bg-white/6",
+            timelineOpen ? "bg-white/10 text-white" : "text-white/90",
             FOCUS_RING,
           )}
           onClick={onToggleTimeline}
         >
-          <CalendarDaysIcon className="size-4 text-white/55" strokeWidth={1.75} />
+          <CalendarDaysIcon className="size-5 text-white/55" strokeWidth={1.75} />
           <T>Timeline</T>
         </button>
-        <div className="mt-3 flex items-center gap-1.5 px-3 text-[12px] text-white/40">
-          <ClockIcon className="size-3.5" strokeWidth={1.75} />
-          <span>
-            <T context="heading for the recent chat list">Recents</T>
-          </span>
-          <button
-            type="button"
-            className={cn(
-              "ml-auto grid size-6 place-items-center rounded-md text-white/40 hover:bg-white/6 hover:text-white/70",
-              FOCUS_RING,
-            )}
-            aria-label={gt("Refresh recents", { $context: "restores the recent chat list" })}
-            onClick={() => {
-              setQuery("");
-              setSearchOpen(false);
-              setSelectedId("hey-vexo");
-            }}
-          >
-            <RotateCwIcon className="size-3.5" strokeWidth={1.75} />
-          </button>
-        </div>
-        <div className="mt-1 min-h-0 flex-1 overflow-y-auto px-1.5 pb-3">
-          {recents.length === 0 ? (
-            <p className="px-2 py-2 text-[13px] text-white/40">
-              <T>No matching chats</T>
-            </p>
-          ) : (
-            recents.map((recent) => {
-              const selected = recent.id === selectedId;
-              const title = m(recent.title);
-              return (
-                <div
-                  key={recent.id}
-                  className={cn(
-                    "group flex h-8 items-center rounded-lg pr-1",
-                    selected ? "bg-white/8 text-white" : "text-white/75 hover:bg-white/5",
-                  )}
-                >
-                  <button
-                    type="button"
-                    className={cn("min-w-0 flex-1 truncate px-2 text-left text-[13px]", FOCUS_RING)}
-                    aria-current={selected ? "true" : undefined}
-                    onClick={() => {
-                      setSelectedId(recent.id);
-                      if (recent.id === "hey-vexo") onHeyVexo();
-                    }}
-                  >
-                    {title}
-                  </button>
-                  {selected ? (
-                    <button
-                      type="button"
-                      className={cn(
-                        "grid size-5 shrink-0 place-items-center rounded text-white/45 hover:bg-white/10 hover:text-white/80",
-                        FOCUS_RING,
-                      )}
-                      aria-label={gt("Clear selection", {
-                        $context: "deselects the highlighted recent chat",
-                      })}
-                      onClick={() => {
-                        setSelectedId(null);
-                      }}
-                    >
-                      <XIcon className="size-3" strokeWidth={1.75} />
-                    </button>
-                  ) : null}
-                </div>
-              );
-            })
-          )}
-        </div>
+        <VexoRecents
+          onOpenThread={() => {
+            if (timelineOpen) onToggleTimeline();
+          }}
+        />
       </div>
     </aside>
   );
@@ -885,6 +721,7 @@ function VexoComposer({
     const next = prompt.trim();
     if (!canSend || next.length === 0) return;
     onSubmit?.(next);
+    setPrompt("");
   };
 
   return (
@@ -892,8 +729,7 @@ function VexoComposer({
       <label className="sr-only" htmlFor="vexo-ask">
         <T>Ask Vexo</T>
       </label>
-      <div className="flex h-12 items-center gap-1 rounded-full border border-white/10 bg-[#23262c] pr-1.5 pl-3">
-        <PaperclipIcon className="size-4 shrink-0 text-white/40" aria-hidden />
+      <div className="flex h-12 items-center gap-1 rounded-full border border-white/10 bg-[#23262c] pr-1.5 pl-4">
         <input
           id="vexo-ask"
           value={prompt}
@@ -970,7 +806,11 @@ function ApprovalsCard({ approvals }: { readonly approvals: readonly VexoApprova
 
 function approvalLabel(approval: VexoApprovalRow, fallback: string): string {
   const title = approval.title.trim() || fallback;
-  const detail = approval.approval?.detail?.trim() || approval.approval?.reason?.trim() || "";
+  const detail =
+    approval.approval?.detail?.trim() ||
+    approval.approval?.reason?.trim() ||
+    approval.question?.trim() ||
+    "";
   return detail.length > 0 ? `${title}: ${detail}` : title;
 }
 
@@ -1048,36 +888,23 @@ function sessionCountDetail(count: number, m: MessageResolver): string {
   return m(CONNECTED_SESSIONS, { count });
 }
 
-function AppMark({ id }: { readonly id: string }) {
+function AppMark({ id }: { readonly id: VexoAppId | string }) {
   if (id === "claude-code") {
-    return (
-      <svg viewBox="0 0 16 16" className="size-4 text-[#ff8c1a]" aria-hidden>
-        <path
-          fill="currentColor"
-          d="M8 0.8 9.15 6.05 14.4 8 9.15 9.95 8 15.2 6.85 9.95 1.6 8 6.85 6.05Z"
-        />
-      </svg>
-    );
+    return <ClaudeAI className="size-4" aria-hidden />;
   }
   if (id === "codex") {
-    return (
-      <svg viewBox="0 0 16 16" className="size-4 text-white/75" aria-hidden>
-        <circle cx="8" cy="8" r="5.2" fill="none" stroke="currentColor" strokeWidth="1.4" />
-        <path
-          d="M8 4.7v3.5l2.15 1.25"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.4"
-          strokeLinecap="round"
-        />
-      </svg>
-    );
+    return <OpenAI className="size-4 fill-white" aria-hidden />;
+  }
+  if (id === "grokbot") {
+    return <CursorIcon className="size-4 fill-white" aria-hidden />;
   }
   return (
-    <svg viewBox="0 0 16 16" className="size-4 text-white/70" aria-hidden>
-      <circle cx="8" cy="8" r="5.2" fill="none" stroke="currentColor" strokeWidth="1.4" />
-      <circle cx="8" cy="8" r="1.35" fill="currentColor" />
-    </svg>
+    <span
+      className="inline-flex size-4 items-center justify-center rounded-sm bg-white/10 text-[9px] font-semibold text-white/70"
+      aria-hidden
+    >
+      {monogram(id).slice(0, 1)}
+    </span>
   );
 }
 
@@ -1214,7 +1041,6 @@ function CaptureBar({
   readonly onSubmit: ((prompt: string) => void) | undefined;
   readonly onCaptureAttached?: ((capture: DesktopFrontWindowCapture) => void) | undefined;
 }) {
-  const gt = useGT();
   const [capturing, setCapturing] = useState(false);
   const capture = () => {
     if (busy || capturing) return;
@@ -1232,124 +1058,29 @@ function CaptureBar({
       });
   };
   return (
-    <div className="pointer-events-auto flex items-center gap-1 rounded-full border border-white/10 bg-[#2a2e34] p-1.5 pl-3 shadow-composer-dark">
-      <BarIcon label={gt("Mention", { $context: "composer tool" })}>
-        <AtSignIcon className="size-4" strokeWidth={1.75} />
-      </BarIcon>
-      <BarIcon label={gt("Window", { $context: "capture tool" })}>
-        <AppWindowIcon className="size-4" strokeWidth={1.75} />
-      </BarIcon>
-      <BarIcon label={gt("Region", { $context: "capture tool" })}>
-        <SquareIcon className="size-4" strokeWidth={1.75} />
-      </BarIcon>
-      <BarIcon label={gt("Selection", { $context: "capture tool" })}>
-        <DashedSquareIcon />
-      </BarIcon>
-      <BarIcon label={gt("Record", { $context: "capture tool" })}>
-        <CircleIcon className="size-4" strokeWidth={1.75} />
-      </BarIcon>
-      <span className="mx-1 h-5 w-px bg-white/12" aria-hidden />
-      <button
-        type="button"
-        className={cn(
-          "inline-flex h-8 items-center gap-1 rounded-full px-2 text-[13px] text-white/70 hover:bg-white/6 hover:text-white",
-          FOCUS_RING,
-        )}
-      >
-        {gt("Options", { $context: "menu of capture tools" })}
-        <ChevronDownIcon className="size-3.5" strokeWidth={1.75} />
-      </button>
-      <button
-        type="button"
-        disabled={busy || capturing}
-        onClick={capture}
-        className={cn(
-          "ml-1 inline-flex h-8 items-center rounded-full bg-[#0a84ff] px-3.5 text-[13px] font-medium text-white hover:bg-[#2493ff] disabled:opacity-50",
-          FOCUS_RING,
-        )}
-      >
-        <T context="button, starts a screen capture">Capture</T>
-      </button>
-    </div>
-  );
-}
-
-function BarIcon({ label, children }: { readonly label: string; readonly children: ReactNode }) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      className={cn(
-        "grid size-8 place-items-center rounded-full text-white/55 hover:bg-white/8 hover:text-white/85",
-        FOCUS_RING,
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
-function DashedSquareIcon() {
-  return (
-    <svg viewBox="0 0 16 16" className="size-4" aria-hidden>
-      <rect
-        x="2.25"
-        y="2.25"
-        width="11.5"
-        height="11.5"
-        rx="1.5"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeDasharray="2.2 1.8"
-      />
-    </svg>
-  );
-}
-
-function DeferredPanel({
-  feature,
-  onClose,
-}: {
-  readonly feature: DeferredFeature;
-  readonly onClose: () => void;
-}) {
-  const gt = useGT();
-  return (
-    <div className="pointer-events-none absolute inset-y-0 right-0 left-60 z-20 flex justify-center px-6">
-      <div
-        role="dialog"
-        tabIndex={-1}
-        autoFocus
-        data-vexo-deferred={feature}
-        aria-labelledby="vexo-deferred-title"
-        className="pointer-events-auto mt-[calc(var(--workspace-topbar-height)+4.5rem)] h-fit w-full max-w-sm rounded-2xl border border-white/10 bg-[#23262c] px-4 py-3.5 shadow-composer-dark outline-none"
-        onKeyDown={(event) => {
-          if (event.key === "Escape") onClose();
-        }}
-      >
-        <div className="flex items-start gap-3">
-          <div className="min-w-0 flex-1">
-            <h2 id="vexo-deferred-title" className="text-[14px] font-medium text-white">
-              <T>Not available yet</T>
-            </h2>
-            <p className="mt-1 text-[13px] leading-5 text-white/55">
-              <DeferredBody feature={feature} />
-            </p>
-          </div>
-          <button
-            type="button"
-            className={cn(
-              "grid size-6 shrink-0 place-items-center rounded-md text-white/45 hover:bg-white/10 hover:text-white/80",
-              FOCUS_RING,
-            )}
-            aria-label={gt("Close", { $context: "dismisses the coming soon note" })}
-            onClick={onClose}
+    <div className="pointer-events-auto flex items-center rounded-full border border-white/10 bg-[#2a2e34] p-1.5 shadow-composer-dark">
+      <TooltipProvider delay={1000} closeDelay={150} timeout={400}>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <button
+                type="button"
+                disabled={busy || capturing}
+                onClick={capture}
+                className={cn(
+                  "inline-flex h-8 items-center rounded-full bg-[#0a84ff] px-3.5 text-[13px] font-medium text-white hover:bg-[#2493ff] disabled:opacity-50",
+                  FOCUS_RING,
+                )}
+              />
+            }
           >
-            <XIcon className="size-3.5" strokeWidth={1.75} />
-          </button>
-        </div>
-      </div>
+            <T context="button, starts a screen capture">Capture</T>
+          </TooltipTrigger>
+          <TooltipPopup side="top">
+            <T>Capture front window</T>
+          </TooltipPopup>
+        </Tooltip>
+      </TooltipProvider>
     </div>
   );
 }
@@ -1359,15 +1090,22 @@ function BandPanel({
   scanning,
   onScan,
   onClose,
+  insetClassName = "left-60",
 }: {
   readonly band: DesktopVexoBandStatus | null;
   readonly scanning: boolean;
   readonly onScan: () => void;
   readonly onClose: () => void;
+  readonly insetClassName?: string;
 }) {
   const gt = useGT();
   return (
-    <div className="pointer-events-none absolute inset-y-0 right-0 left-60 z-20 flex justify-center px-6">
+    <div
+      className={cn(
+        "pointer-events-none absolute inset-y-0 right-0 z-20 flex justify-center px-6",
+        insetClassName,
+      )}
+    >
       <div
         role="dialog"
         tabIndex={-1}
@@ -1429,9 +1167,3 @@ function BandPanel({
   );
 }
 
-function DeferredBody({ feature }: { readonly feature: DeferredFeature }) {
-  if (feature === "hey-vexo") {
-    return <T>Hey Vexo uses this Mac's microphone once a project is open.</T>;
-  }
-  return null;
-}

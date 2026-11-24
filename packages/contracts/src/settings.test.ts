@@ -17,6 +17,7 @@ import {
   idleCompactionPatch,
   PROJECT_SCOPED_SERVER_SETTING_KEYS,
   requiredScopesForProjectMutation,
+  requiredScopesForServerSettingsPatch,
   resolveIdleCompaction,
   resolveProjectProviderInstanceEnabled,
   resolveProviderInstanceEnabled,
@@ -53,6 +54,19 @@ it("drops theme defaults from a client's settings patch", () => {
       defaultAppearanceSetAt: "2026-11-13T00:00:00.000Z",
     }),
   ).toEqual({ newWorktreesStartFromOrigin: false });
+});
+
+describe("agent collaboration setting", () => {
+  it("is off by default, environment-wide and needs settings-write", () => {
+    expect(decodeServerSettings({}).enableAgentCollaboration).toBe(false);
+    expect(decodeServerSettingsPatch({ enableAgentCollaboration: true })).toEqual({
+      enableAgentCollaboration: true,
+    });
+    expect(PROJECT_SCOPED_SERVER_SETTING_KEYS).not.toContain("enableAgentCollaboration");
+    expect(requiredScopesForServerSettingsPatch({ enableAgentCollaboration: true })).toEqual([
+      "settings:write",
+    ]);
+  });
 });
 
 describe("storage cleanup settings", () => {

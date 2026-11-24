@@ -101,13 +101,27 @@ async function captureWindow(
   return { ok: true, imagePath };
 }
 
+/**
+ * Main-display JPEG with this host's chrome blanked so Screen watch does not
+ * mirror VexoMacApp / T3 Code back into itself.
+ */
 export async function captureDisplay(): Promise<{ ok: true; imagePath: string } | ObserveFailure> {
   const blocked = await captureBlocked();
   if (blocked) return blocked;
   const imagePath = NodePath.join(NodeOS.tmpdir(), `vexo-mac-frame-${NodeCrypto.randomUUID()}.jpg`);
-  const result = await run(SCREEN_CAPTURE, ["-t", "jpg", "-x", imagePath], undefined, 20_000);
-  if (result.code !== 0) return { ok: false, reason: "screen_recording_unavailable" };
+  const captured = await run(SCREEN_CAPTURE, ["-t", "jpg", "-x", imagePath], undefined, 20_000);
+  if (captured.code !== 0) return { ok: false, reason: "screen_recording_unavailable" };
   const info = await NodeFSP.stat(imagePath).catch(() => null);
   if (!info || info.size <= 0) return { ok: false, reason: "screen_recording_unavailable" };
+  const blanked = await run(
+    swiftBin(),
+    [helperScript(), "blank-host-capture", imagePath],
+    undefined,
+    20_000,
+  );
+  if (blanked.code !== 0) {
+    await NodeFSP.rm(imagePath, { force: true }).catch(() => undefined);
+    return { ok: false, reason: "screen_recording_unavailable" };
+  }
   return { ok: true, imagePath };
 }

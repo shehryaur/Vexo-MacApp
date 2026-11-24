@@ -26,6 +26,7 @@ import {
   OrchestrationV2TurnItem,
   OrchestrationV2TurnItemJson,
   withMessageSenderNote,
+  withRelayedUserRequest,
 } from "./orchestrationV2.ts";
 
 const now = DateTime.makeUnsafe("2026-04-20T00:00:00.000Z");
@@ -743,5 +744,24 @@ describe("withMessageSenderNote", () => {
     [{ createdBy: "agent", creationSource: "server" }, "Hi", "Hi"],
   ] as const)("labels %j's message %j for the provider", (message, text, expected) => {
     expect(withMessageSenderNote(message, text)).toBe(expected);
+  });
+});
+
+describe("withRelayedUserRequest", () => {
+  it.each([
+    [
+      "Ask  Cozy\nwhat I asked",
+      "What did the user ask you?",
+      '[T3 Code: the user\'s request in that thread was "Ask Cozy what I asked".]\n\nWhat did the user ask you?',
+    ],
+    ["   ", "Hi", "Hi"],
+    ["Ask Cozy", "/compact", "/compact"],
+    [
+      "x".repeat(700),
+      "",
+      `[T3 Code: the user's request in that thread was "${"x".repeat(600)}…".]`,
+    ],
+  ])("relays %j", (request, text, expected) => {
+    expect(withRelayedUserRequest(request, text)).toBe(expected);
   });
 });

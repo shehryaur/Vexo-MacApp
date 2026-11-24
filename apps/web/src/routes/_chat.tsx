@@ -8,11 +8,17 @@ import { resolveThreadRouteTarget } from "../threadRoutes";
 import { retainThreadFindForRoute } from "../components/chat/threadFindStore";
 import { ThreadLinkPrompt } from "../components/promptLinks/ThreadLinkPrompt";
 import { useShownThreadRouteTarget } from "../hooks/useShownThreadRouteTarget";
+import { VexoShell } from "../components/vexo/VexoShell";
+import { isElectron } from "../env";
+import { isMacPlatform } from "../lib/utils";
 
 function ChatRouteLayout() {
   // Render both routes here so draft promotion keeps the same ChatView mounted.
   const { shownTarget, modalOpen } = useShownThreadRouteTarget();
-  return (
+  // Keep Vexo chrome mounted while Settings/Usage modals are open so the grey
+  // canvas does not flash to stock black and back when the profile button is used.
+  const useVexoChrome = isElectron && isMacPlatform(navigator.platform);
+  const body = (
     <>
       {shownTarget?.kind === "server" && !modalOpen ? (
         <ThreadLinkPrompt threadRef={shownTarget.threadRef} />
@@ -28,6 +34,10 @@ function ChatRouteLayout() {
       <GlobalVoiceInputIndicator hidden={modalOpen} />
     </>
   );
+  if (useVexoChrome) {
+    return <VexoShell>{body}</VexoShell>;
+  }
+  return body;
 }
 
 export const Route = createFileRoute("/_chat")({

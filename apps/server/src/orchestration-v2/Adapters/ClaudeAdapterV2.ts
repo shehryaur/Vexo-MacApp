@@ -218,6 +218,7 @@ import {
 } from "../../provider/claudeUsageLimits.ts";
 import type { ManagedServerProvider } from "@t3tools/provider-core/server/snapshot";
 import {
+  T3_CODE_AGENT_COLLABORATION_INSTRUCTIONS,
   T3_CODE_DEVICE_TOOL_INSTRUCTIONS_WITH_TOOL_SEARCH,
   T3_CODE_ORCHESTRATION_INSTRUCTIONS,
 } from "@t3tools/provider-core/server/orchestrationInstructions";
@@ -2297,6 +2298,8 @@ export function makeClaudeQueryOptions(input: {
   readonly attachmentsDir?: string;
   readonly settings?: ClaudeSettings;
   readonly promptSuggestions?: boolean;
+  /** The user allows their T3 sessions to exchange task status; needs the T3 MCP server. */
+  readonly agentCollaboration?: boolean;
   readonly sdkSettings?: string | ClaudeSdkSettings;
   readonly environment?: NodeJS.ProcessEnv;
   readonly mcpServers?: ClaudeQueryOptions["mcpServers"];
@@ -2470,6 +2473,9 @@ export function makeClaudeQueryOptions(input: {
               (deviceInstructions
                 ? `\n${T3_CODE_DEVICE_TOOL_INSTRUCTIONS_WITH_TOOL_SEARCH}\n`
                 : "")),
+        ...(input.agentCollaboration === true && input.mcpServers !== undefined
+          ? [T3_CODE_AGENT_COLLABORATION_INSTRUCTIONS.trim()]
+          : []),
         ...launchAppendSystemPrompt,
       ].join("\n\n"),
     },
@@ -6002,6 +6008,7 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
     openSession: Effect.fn("ClaudeAdapterV2.openSession")(
       function* (input: ProviderAdapter.ProviderAdapterV2OpenSessionInput) {
         const promptSuggestionsEnabled = input.promptSuggestions ?? Effect.succeed(false);
+        const agentCollaborationEnabled = input.agentCollaboration ?? Effect.succeed(false);
         const sessionScope = yield* Effect.scope;
         const now = yield* DateTime.now;
         const session = providerSession({
@@ -13263,6 +13270,7 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
             // Delegated threads have no one typing, so they never ask for suggestions.
             promptSuggestions:
               !isDelegatedAppThread(turnInput.appThread) && (yield* promptSuggestionsEnabled),
+            agentCollaboration: yield* agentCollaborationEnabled,
             ...(launchArgSettings === undefined
               ? {}
               : { sdkSettings: claudeSdkLaunchArgSettings(launchArgSettings) }),

@@ -546,6 +546,8 @@ export interface ProviderAdapterV2OpenSessionInput {
   readonly runtimePolicy: ProviderAdapterV2RuntimePolicy;
   /** Labs flag, read live: emit `prompt_suggestion.updated` after completed turns, where the provider can. */
   readonly promptSuggestions?: Effect.Effect<boolean>;
+  /** Environment setting, read when a provider session starts: the agent may exchange task status with the user's other T3 sessions. Absent means off. */
+  readonly agentCollaboration?: Effect.Effect<boolean>;
   readonly resumeFromSession?: OrchestrationV2ProviderSession;
   readonly initialNativeThreadId?: string;
   readonly initialProviderItemIdentityVersion?: 2;

@@ -5035,6 +5035,7 @@ describe("OrchestratorMcpService thread lookup", () => {
     shells: ReadonlyArray<OrchestrationV2ThreadShell>,
     sent: Ref.Ref<number>,
     overrides: Partial<ThreadManagementService.ThreadManagementService["Service"]> = {},
+    settings: Parameters<typeof ServerSettings.layerTest>[0] = {},
   ) =>
     layerOrchestratorService.pipe(
       Layer.provide(
@@ -5047,7 +5048,7 @@ describe("OrchestratorMcpService thread lookup", () => {
             sendToThread: () => Ref.update(sent, (count) => count + 1).pipe(Effect.as({} as never)),
             ...overrides,
           }),
-          ServerSettings.layerTest(),
+          ServerSettings.layerTest(settings),
           Layer.mock(ProviderRegistry.ProviderRegistry)({ getProviders: Effect.succeed([]) }),
           Layer.mock(ProviderAdapterRegistry.ProviderAdapterRegistryV2)({
             list: () => Effect.succeed([]),
@@ -5205,6 +5206,74 @@ describe("OrchestratorMcpService thread lookup", () => {
       assert.deepStrictEqual(fromLink?.linkedSender, sender);
       assert.isUndefined(fromLink?.senderThreadId);
       assert.isUndefined((yield* sendAs(linked()))?.linkedSender);
+    }),
+  );
+
+  it.effect("quotes the sender's own user request only while agent collaboration is on", () =>
+    Effect.gen(function* () {
+      const target = liveThreadShell(ThreadId.make("thread:cozy"));
+      const sender = liveThreadShell(ThreadId.make("thread:asker"));
+      const userMessageId = MessageId.make("message:asker");
+      const scope: McpInvocationScope = {
+        ...client,
+        thread: {
+          threadId: sender.id,
+          providerSessionId: "provider-session:asker",
+          providerInstanceId: ProviderInstanceId.make("claudeAgent"),
+        },
+      };
+      const sendWith = (enableAgentCollaboration: boolean, createdBy: "user" | "agent") =>
+        Effect.gen(function* () {
+          const inputs: Array<ThreadManagementService.ThreadManagementSendInput> = [];
+          const sent = yield* Ref.make(0);
+          yield* Effect.gen(function* () {
+            const mcp = yield* OrchestratorMcpService.OrchestratorMcpService;
+            yield* mcp.sendToThread(scope, {
+              threadId: target.id,
+              message: "What did the user ask you?",
+            });
+          }).pipe(
+            Effect.provide(
+              service(
+                [target],
+                sent,
+                {
+                  getThreadRecords: () =>
+                    Effect.succeed({
+                      ...idleThreadProjection(sender),
+                      runs: [
+                        {
+                          id: RunId.make("run:asker"),
+                          status: "running",
+                          ordinal: 1,
+                          userMessageId,
+                          providerInstanceId: ProviderInstanceId.make("claudeAgent"),
+                        },
+                      ],
+                      messages: [{ id: userMessageId, createdBy, text: "Ask  Cozy what I asked" }],
+                    } as never),
+                  getProjectThreadRecords: () => Effect.succeed(idleThreadProjection(target)),
+                  sendToThread: (input) => {
+                    inputs.push(input);
+                    return Effect.succeed({
+                      run: { id: RunId.make("run:sent"), status: "running" },
+                      delivery: "started",
+                    } as never);
+                  },
+                },
+                { enableAgentCollaboration },
+              ),
+            ),
+          );
+          return inputs[0]?.text;
+        });
+
+      assert.equal(
+        yield* sendWith(true, "user"),
+        '[T3 Code: the user\'s request in that thread was "Ask Cozy what I asked".]\n\nWhat did the user ask you?',
+      );
+      assert.equal(yield* sendWith(false, "user"), "What did the user ask you?");
+      assert.equal(yield* sendWith(true, "agent"), "What did the user ask you?");
     }),
   );
 

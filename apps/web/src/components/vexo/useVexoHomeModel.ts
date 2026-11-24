@@ -46,6 +46,8 @@ export interface VexoApprovalRow {
   readonly thread: ScopedThreadRef;
   readonly title: string;
   readonly approval: ThreadPendingApproval | null;
+  readonly question?: string;
+  readonly createdAt: string;
 }
 
 export interface VexoSessionRow {
@@ -71,7 +73,11 @@ let previousApprovals: ReadonlyArray<VexoApprovalRow> = [];
 const vexoPendingApprovalsAtom = Atom.make((get) => {
   const next: VexoApprovalRow[] = [];
   for (const shell of get(environmentThreadShells.visibleThreadShellsAtom)) {
-    if (!shell.hasPendingApprovals || shell.archivedAt !== null || shell.deletedAt !== null) {
+    if (
+      (!shell.hasPendingApprovals && !shell.hasPendingUserInput) ||
+      shell.archivedAt !== null ||
+      shell.deletedAt !== null
+    ) {
       continue;
     }
     const thread = { environmentId: shell.environmentId, threadId: shell.id };
@@ -82,6 +88,7 @@ const vexoPendingApprovalsAtom = Atom.make((get) => {
         thread,
         title: shell.title,
         approval: null,
+        createdAt: shell.pendingUserInputAt ?? "",
       });
       continue;
     }
@@ -91,11 +98,22 @@ const vexoPendingApprovalsAtom = Atom.make((get) => {
         thread,
         title: shell.title,
         approval,
+        createdAt: approval.createdAt,
+      });
+    }
+    for (const input of pending.userInputs) {
+      next.push({
+        key: `${threadKey(thread)}:${input.requestId}`,
+        thread,
+        title: shell.title,
+        approval: null,
+        ...(input.questions[0] ? { question: input.questions[0].question } : {}),
+        createdAt: input.createdAt,
       });
     }
   }
   next.sort((left, right) => {
-    const byTime = (left.approval?.createdAt ?? "").localeCompare(right.approval?.createdAt ?? "");
+    const byTime = left.createdAt.localeCompare(right.createdAt);
     return byTime === 0 ? left.title.localeCompare(right.title) : byTime;
   });
   if (
@@ -105,6 +123,7 @@ const vexoPendingApprovalsAtom = Atom.make((get) => {
       return (
         previous !== undefined &&
         previous.approval === entry.approval &&
+        previous.question === entry.question &&
         previous.title === entry.title &&
         previous.key === entry.key
       );
@@ -189,7 +208,8 @@ function knownAppId(driver: string): VexoAppId | null {
   const key = driver.toLowerCase().replace(/[^a-z0-9]/gu, "");
   if (key.includes("claude")) return "claude-code";
   if (key.includes("codex")) return "codex";
-  if (key.includes("grok")) return "grokbot";
+  // Cursor and Grok share the Cursor / Grok home row (Grok models often run via Cursor).
+  if (key.includes("cursor") || key.includes("grok")) return "grokbot";
   return null;
 }
 

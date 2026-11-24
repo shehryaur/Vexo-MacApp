@@ -1229,6 +1229,32 @@ html[data-mobile-composer-route-transition="true"]::view-transition-old(t3-mobil
   }
 }
 
+/*
+ * Vexo Mac chrome: keep the main canvas on the same grey as the sidebar.
+ * Stock dark mode uses true black (#000); that reads as a black page next to
+ * the grey rail. Cards stay a hair lighter so they still lift.
+ * `html[data-vexo-mac]` also covers portaled Settings/Usage modals so opening
+ * the profile button does not flash black behind the dialog.
+ */
+[data-vexo-shell],
+html[data-vexo-mac] {
+  --background: #141518;
+  --app-chrome-background: #141518;
+  --card: #1b1d22;
+  --surface-raised: #1b1d22;
+  --message-surface: #1b1d22;
+  --muted: rgb(255 255 255 / 4%);
+  --accent: rgb(255 255 255 / 6%);
+  --sidebar: #141518;
+  --sidebar-stage-fade: #141518;
+  color-scheme: dark;
+}
+
+html[data-vexo-mac],
+html[data-vexo-mac] body {
+  background-color: #141518;
+}
+
 /* Keep both sidebar implementations (default and legacy) on the same quiet
    zinc hierarchy: zinc-50 navigation, zinc-25 hover, and white selected/raised
    surfaces. */
